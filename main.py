@@ -30,6 +30,9 @@ def start(message):
         if message.chat.id in config['ADMINS']:
             options['Adicionar Plano'] = {'callback_data': 'add_plan'}
             options['Planos'] = {'callback_data': 'show_plans'}
+            options['Editar Mensagem de Plano'] = {
+                'callback_data': 'edit_plan_message'
+            }
             options['Adicionar Membro'] = {'callback_data': 'add_member'}
             options['Membros'] = {'callback_data': 'show_members'}
         bot.send_message(

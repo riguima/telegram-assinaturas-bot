@@ -1,8 +1,8 @@
-from sqlalchemy import select
 from telebot.util import quick_markup
 
 from telegram_assinaturas_bot.database import Session
 from telegram_assinaturas_bot.models import Plan
+from telegram_assinaturas_bot.utils import get_plans_reply_markup
 
 
 def init_bot(bot, start):
@@ -66,21 +66,42 @@ def init_bot(bot, start):
             bot.send_message(message.chat.id, 'Plano Adicionado!')
             start(message)
 
-    @bot.callback_query_handler(func=lambda c: c.data == 'show_plans')
-    def show_plans(callback_query):
-        reply_markup = {}
-        with Session() as session:
-            for plan_model in session.scalars(select(Plan)).all():
-                reply_markup[
-                    f'{plan_model.name} - {plan_model.days} Dias - R${plan_model.value:.2f}'.replace(
-                        '.', ','
-                    )
-                ] = {'callback_data': f'show_plan:{plan_model.id}'}
-            reply_markup['Voltar'] = {'callback_data': 'return_to_main_menu'}
+    @bot.callback_query_handler(func=lambda c: c.data == 'edit_plan_message')
+    def edit_plan_message(callback_query):
         bot.send_message(
             callback_query.message.chat.id,
             'Planos',
-            reply_markup=quick_markup(reply_markup, row_width=1),
+            reply_markup=quick_markup(
+                get_plans_reply_markup('edit_plan_message'), row_width=1
+            ),
+        )
+
+    @bot.callback_query_handler(func=lambda c: 'edit_plan_message:' in c.data)
+    def edit_plan_message_actoin(callback_query):
+        plan_id = int(callback_query.data.split(':')[-1])
+        bot.send_message(
+            callback_query.message.chat.id, 'Digite a mensagem para o plano'
+        )
+        bot.register_next_step_handler(
+            callback_query.message, lambda m: on_edit_plan_message(m, plan_id)
+        )
+
+    def on_edit_plan_message(message, plan_id):
+        with Session() as session:
+            plan_model = session.get(Plan, plan_id)
+            plan_model.message = message.text
+            session.commit()
+            bot.send_message(message.chat.id, 'Mensagem Editada!')
+            start(message)
+
+    @bot.callback_query_handler(func=lambda c: c.data == 'show_plans')
+    def show_plans(callback_query):
+        bot.send_message(
+            callback_query.message.chat.id,
+            'Planos',
+            reply_markup=quick_markup(
+                get_plans_reply_markup('show_plan'), row_width=1
+            ),
         )
 
     @bot.callback_query_handler(func=lambda c: 'show_plan:' in c.data)

@@ -34,6 +34,7 @@ def init_bot(bot, start):
                     'Você não possui uma assinatura ativa',
                     reply_markup=quick_markup(
                         {
+                            'Comprar acesso': {'callback_data': 'sign'},
                             'Voltar': {'callback_data': 'return_to_main_menu'},
                         },
                         row_width=1,
@@ -55,6 +56,7 @@ def init_bot(bot, start):
             ] = {
                 'callback_data': f'show_signature_message:{signature_model.id}'
             }
+        reply_markup['Comprar acesso'] = {'callback_data': 'sign'}
         reply_markup['Voltar'] = {'callback_data': 'return_to_main_menu'}
         bot.send_message(
             message.chat.id,
@@ -97,7 +99,7 @@ def init_bot(bot, start):
             plan_model = session.get(Plan, plan_id)
             payment_data = {
                 'transaction_amount': plan_model.value,
-                'description': f'R$ {plan_model.value:.2f} - {plan_model.downloads_number} downloads por dia - Vencimento: {(get_today_date() + timedelta(days=plan_model.days)).strftime("%d/%m/%Y")} - {callback_query.message.chat.username}',
+                'description': f'{plan_model.name} - {plan_model.days} Dias - R${plan_model.value:.2f} - Vencimento: {(get_today_date() + timedelta(days=plan_model.days)).strftime("%d/%m/%Y")} - {callback_query.message.chat.username}',
                 'payment_method_id': 'pix',
                 'installments': 1,
                 'payer': {
