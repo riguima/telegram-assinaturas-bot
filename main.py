@@ -23,7 +23,7 @@ def start(message):
                 session.commit()
                 session.flush()
         options = {
-            'Minha Assinatura': {
+            'Minhas Assinaturas': {
                 'callback_data': f'show_signature:{message.chat.username}'
             },
         }
@@ -37,7 +37,7 @@ def start(message):
             options['Membros'] = {'callback_data': 'show_members'}
         bot.send_message(
             message.chat.id,
-            'Sites compatíveis: Freepik, Baixardesign e Designi.\nPara realizar o download do arquivo desejado basta enviar o link do arquivo.\n\nOBS:\n- Enviar um link por vez.\n- Para habilitar o menú digite: /menu\n- Em caso de erro contate o suporte.',
+            'Sites compatíveis: Freepik, Baixardesign e Designi.\n\nAo adquirir sua assinatura, confira seu acesso na aba "Minhas Assinaturas" 🔍\n\n🚫 Proibido compartilhar a senha\n\nSe encontrar algum erro, entre em contato com o suporte 🛠️',
             reply_markup=quick_markup(options, row_width=1),
         )
     else:
