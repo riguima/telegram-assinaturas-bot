@@ -1,13 +1,12 @@
 from datetime import timedelta
 
 from sqlalchemy import select
-from telegram_download_arquivos_bot.database import Session
-from telegram_download_arquivos_bot.extensions.signatures import \
-    mercado_pago_sdk
-from telegram_download_arquivos_bot.models import Payment, Plan, Signature
-from telegram_download_arquivos_bot.utils import get_today_date
 
 from main import bot, start
+from telegram_assinaturas_bot.database import Session
+from telegram_assinaturas_bot.extensions.signatures import mercado_pago_sdk
+from telegram_assinaturas_bot.models import Payment, Plan, Signature
+from telegram_assinaturas_bot.utils import get_today_date
 
 if __name__ == '__main__':
     with Session() as session:
@@ -28,7 +27,7 @@ if __name__ == '__main__':
                     signature_model = Signature(
                         user=payment.user,
                         payment_id=payment.payment_id,
-                        value=plan_model.value,
+                        plan=plan_model,
                         due_date=get_today_date()
                         + timedelta(days=plan_model.days),
                     )
