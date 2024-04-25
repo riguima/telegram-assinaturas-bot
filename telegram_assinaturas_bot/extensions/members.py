@@ -142,8 +142,14 @@ def init_bot(bot, start):
     )
     def add_member_plan_action(callback_query):
         plan_id, username = callback_query.data.split(':')[1:]
-        bot.send_message(callback_query.message.chat.id, 'Digite a quantidade de dias para o plano')
-        bot.register_next_step_handler(callback_query.message, lambda m: on_member_plan_days(m, plan_id, username))
+        bot.send_message(
+            callback_query.message.chat.id,
+            'Digite a quantidade de dias para o plano',
+        )
+        bot.register_next_step_handler(
+            callback_query.message,
+            lambda m: on_member_plan_days(m, plan_id, username),
+        )
 
     def on_member_plan_days(message, plan_id, username):
         try:
@@ -154,13 +160,17 @@ def init_bot(bot, start):
                 signature_model = Signature(
                     user=user_model,
                     plan=plan_model,
-                    due_date=get_today_date() + timedelta(days=int(message.text)),
+                    due_date=get_today_date()
+                    + timedelta(days=int(message.text)),
                 )
                 session.add(signature_model)
                 session.commit()
             bot.send_message(message.chat.id, 'Plano Adicionado!')
         except ValueError:
-            bot.send_message(message.chat.id, 'Valor inválido, digite como no exemplo: 10 ou 15')
+            bot.send_message(
+                message.chat.id,
+                'Valor inválido, digite como no exemplo: 10 ou 15',
+            )
         start(message)
 
     @bot.callback_query_handler(func=lambda c: 'remove_member:' in c.data)
