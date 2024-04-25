@@ -24,10 +24,14 @@ def init_bot(bot, start):
             username = callback_query.data.split(':')[-1]
             query = select(User).where(User.username == username)
             user_model = session.scalars(query).first()
-            if user_model.signatures:
-                send_signature_menu(
-                    callback_query.message, user_model.signatures
-                )
+            query = (
+                select(Signature)
+                .where(Signature.due_date >= get_today_date())
+                .where(Signature.user_id == user_model.id)
+            )
+            signatures_models = session.scalars(query).all()
+            if signatures_models:
+                send_signature_menu(callback_query.message, signatures_models)
             else:
                 bot.send_message(
                     callback_query.message.chat.id,
@@ -44,13 +48,8 @@ def init_bot(bot, start):
     def send_signature_menu(message, signatures_models):
         reply_markup = {}
         for signature_model in signatures_models:
-            status = (
-                'Ativa'
-                if get_today_date() <= signature_model.due_date
-                else 'Inativa'
-            )
             reply_markup[
-                f'Status: {status} - {signature_model.plan.name} - {signature_model.plan.days} Dias - R${signature_model.plan.value:.2f}'.replace(
+                f'Status: Ativa - {signature_model.plan.name} - {signature_model.plan.days} Dias - R${signature_model.plan.value:.2f}'.replace(
                     '.', ','
                 )
             ] = {

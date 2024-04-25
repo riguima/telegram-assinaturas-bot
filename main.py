@@ -37,7 +37,7 @@ def start(message):
             options['Membros'] = {'callback_data': 'show_members'}
         bot.send_message(
             message.chat.id,
-            'Sites compatíveis: Freepik, Baixardesign e Designi.\n\nAo adquirir sua assinatura, confira seu acesso na aba "Minhas Assinaturas" 🔍\n\n🚫 Proibido compartilhar a senha\n\nSe encontrar algum erro, entre em contato com o suporte 🛠️',
+            'Ao adquirir sua assinatura, confira seu acesso na aba "Minhas Assinaturas" 🔍\n\n🚫 Proibido compartilhar a senha\n\nSe encontrar algum erro, entre em contato com o suporte 🛠️',
             reply_markup=quick_markup(options, row_width=1),
         )
     else:
