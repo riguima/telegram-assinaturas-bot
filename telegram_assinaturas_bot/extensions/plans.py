@@ -27,7 +27,7 @@ def init_bot(bot, start):
             bot.register_next_step_handler(
                 message,
                 lambda m: on_plan_days(
-                    m, plan_name, float(message.text.replace('.', ','))
+                    m, plan_name, float(message.text.replace(',', '.'))
                 ),
             )
         except ValueError:
