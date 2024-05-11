@@ -53,7 +53,7 @@ def init_bot(bot, start):
         with Session() as session:
             options = {}
             options['Buscar Membros'] = {'callback_data': 'search_members'}
-            for user_model in session.scalars(select(TelegramUser)).all():
+            for user_model in session.scalars(select(User)).all():
                 if message.text in user_model.username:
                     options[user_model.username] = {
                         'callback_data': f'show_member:{user_model.username}'
