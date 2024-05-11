@@ -1,3 +1,4 @@
+import re
 from importlib import import_module
 
 import telebot
@@ -6,7 +7,8 @@ from telebot.util import quick_markup
 
 from telegram_assinaturas_bot.config import config
 from telegram_assinaturas_bot.database import Session
-from telegram_assinaturas_bot.models import User
+from telegram_assinaturas_bot.models import Signature, User
+from telegram_assinaturas_bot.utils import get_today_date
 
 bot = telebot.TeleBot(config['BOT_TOKEN'])
 
@@ -51,7 +53,7 @@ def start(message):
 @bot.callback_query_handler(func=lambda c: c.data == 'show_subscribers')
 def show_subscribers(callback_query):
     with Session() as session:
-        users = session.scalars(select(TelegramUser)).all()
+        users = session.scalars(select(User)).all()
         actives = 0
         plans = ''
         for user_model in users:
@@ -66,8 +68,16 @@ def show_subscribers(callback_query):
                 for signature_model in signatures_models:
                     if signature_model.plan.name in plans:
                         pattern = signature_model.plan.name + r': \d+'
-                        actives_in_plan = int(re.findall(signature_model.plan.name + r': (\d+)', plans)[0])
-                        plans = re.sub(pattern, f'{signature_model.plan.name}: {actives_in_plan + 1}', plans)
+                        actives_in_plan = int(
+                            re.findall(
+                                signature_model.plan.name + r': (\d+)', plans
+                            )[0]
+                        )
+                        plans = re.sub(
+                            pattern,
+                            f'{signature_model.plan.name}: {actives_in_plan + 1}',
+                            plans,
+                        )
                     else:
                         plans += f'\n{signature_model.plan.name}: 1'
         bot.send_message(
