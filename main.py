@@ -28,6 +28,7 @@ def start(message):
             },
         }
         if message.chat.id in config['ADMINS']:
+            options['Assinantes'] = {'callback_data': 'show_subscribers'}
             options['Adicionar Plano'] = {'callback_data': 'add_plan'}
             options['Planos'] = {'callback_data': 'show_plans'}
             options['Editar Mensagem de Plano'] = {
@@ -44,6 +45,37 @@ def start(message):
         bot.send_message(
             message.chat.id,
             'Adicione um arroba para sua conta do Telegram para utilizar esse bot',
+        )
+
+
+@bot.callback_query_handler(func=lambda c: c.data == 'show_subscribers')
+def show_subscribers(callback_query):
+    with Session() as session:
+        users = session.scalars(select(TelegramUser)).all()
+        actives = 0
+        plans = ''
+        for user_model in users:
+            query = (
+                select(Signature)
+                .where(Signature.due_date >= get_today_date())
+                .where(Signature.user_id == user_model.id)
+            )
+            signatures_models = session.scalars(query).all()
+            if signatures_models:
+                actives += 1
+                for signature_model in signatures_models:
+                    if signature_model.plan.name in plans:
+                        pattern = signature_model.plan.name + r': \d+'
+                        actives_in_plan = int(re.findall(signature_model.plan.name + r': (\d+)', plans)[0])
+                        plans = re.sub(pattern, f'{signature_model.plan.name}: {actives_in_plan + 1}', plans)
+                    else:
+                        plans += f'\n{signature_model.plan.name}: 1'
+        bot.send_message(
+            callback_query.message.chat.id,
+            f'Número de Usuários: {len(users)}\nAtivos: {actives}\nInativos: {len(users) - actives}\n{plans}',
+            reply_markup=quick_markup(
+                {'Voltar': {'callback_data': 'return_to_main_menu'}}
+            ),
         )
 
 
