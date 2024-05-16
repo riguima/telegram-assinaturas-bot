@@ -61,6 +61,22 @@ def init_bot(bot, start):
     def on_plan_days(message):
         try:
             plan_data[message.chat.username]['plan_days'] = int(message.text)
+            bot.send_message(
+                message.chat.id, 'Digite o número de contas para o plano'
+            )
+            bot.register_next_step_handler(message, on_plan_accounts_number)
+        except ValueError:
+            bot.send_message(
+                message.chat.id,
+                'Valor inválido, digite como no exemplo: 10 ou 15',
+            )
+            start(message)
+
+    def on_plan_accounts_number(message):
+        try:
+            plan_data[message.chat.username]['plan_accounts_number'] = int(
+                message.text
+            )
             bot.send_message(message.chat.id, 'Digite a mensagem para o plano')
             bot.register_next_step_handler(message, on_plan_message)
         except ValueError:
@@ -79,6 +95,7 @@ def init_bot(bot, start):
                 name=data['plan_name'],
                 message=message.text,
                 days=data['plan_days'],
+                accounts_numer=data['plan_accounts_number'],
                 category=category_model,
             )
             session.add(plan_model)

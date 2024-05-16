@@ -43,6 +43,7 @@ class Plan(Base):
     name: Mapped[str]
     value: Mapped[float]
     days: Mapped[int]
+    accounts_number: Mapped[int]
     message: Mapped[str]
     signatures: Mapped[List['Signature']] = relationship(
         back_populates='plan', cascade='all,delete-orphan'
