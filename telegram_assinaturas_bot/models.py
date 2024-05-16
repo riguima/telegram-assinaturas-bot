@@ -49,6 +49,7 @@ class Plan(Base):
         back_populates='plan', cascade='all,delete-orphan'
     )
     category: Mapped['Category'] = relationship(back_populates='plans')
+    category_id: Mapped[int] = mapped_column(ForeignKey('categories.id'))
 
 
 class Category(Base):
