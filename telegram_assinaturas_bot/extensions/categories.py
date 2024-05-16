@@ -30,7 +30,7 @@ def init_bot(bot, start):
             }
         bot.send_message(
             message.chat.id,
-            'Escolha uma Subcategoria',
+            'Subcategoria de',
             reply_markup=quick_markup(reply_markup, row_width=1),
         )
 

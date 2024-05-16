@@ -31,7 +31,7 @@ def init_bot(bot, start):
                         + ':'.join([action, *args])
                     }
             for plan_model in category_model.plans:
-                if plan_model.accounts_number < len(plan_model.signatures):
+                if plan_model.accounts_number > len(plan_model.signatures):
                     reply_markup[
                         f'{plan_model.name} - {plan_model.days} Dias - R${plan_model.value:.2f}'.replace(
                             '.', ','
@@ -41,12 +41,26 @@ def init_bot(bot, start):
                             [action, str(plan_model.id), *args]
                         )
                     }
-            reply_markup['Voltar'] = {'callback_data': 'return_to_main_menu'}
+            reply_markup['Voltar'] = {
+                'callback_data': 'return_to_categories_menu'
+            }
             bot.send_message(
                 callback_query.message.chat.id,
                 'Escolha uma opção',
                 reply_markup=quick_markup(reply_markup, row_width=1),
             )
+
+    @bot.callback_query_handler(
+        func=lambda c: c.data == 'return_to_categories_menu'
+    )
+    def return_to_categories_menu(callback_query):
+        bot.send_message(
+            callback_query.message.chat.id,
+            'Planos',
+            reply_markup=quick_markup(
+                get_categories_reply_markup('show_plan'), row_width=1
+            ),
+        )
 
     @bot.callback_query_handler(func=lambda c: c.data == 'add_plan')
     def add_plan(callback_query):
@@ -77,7 +91,7 @@ def init_bot(bot, start):
         bot.register_next_step_handler(callback_query.message, on_plan_name)
 
     def on_plan_name(message):
-        plan_data[message.chat.username]['name'] = message.text
+        plan_data[message.chat.username]['plan_name'] = message.text
         bot.send_message(message.chat.id, 'Digite o valor para o plano')
         bot.register_next_step_handler(message, on_plan_value)
 
@@ -134,7 +148,7 @@ def init_bot(bot, start):
                 name=data['plan_name'],
                 message=message.text,
                 days=data['plan_days'],
-                accounts_numer=data['plan_accounts_number'],
+                accounts_number=data['plan_accounts_number'],
                 category=category_model,
             )
             session.add(plan_model)

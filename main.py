@@ -30,6 +30,8 @@ def start(message):
             },
         }
         if message.chat.id in config['ADMINS']:
+            options['Adicionar Conta'] = {'callback_data': 'add_account'}
+            options['Contas'] = {'callback_data': 'show_accounts'}
             options['Adicionar Categoria'] = {'callback_data': 'add_category'}
             options['Categorias'] = {'callback_data': 'show_categories'}
             options['Assinantes'] = {'callback_data': 'show_subscribers'}

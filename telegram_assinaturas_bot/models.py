@@ -21,6 +21,10 @@ class User(Base):
     payments: Mapped[List['Payment']] = relationship(
         back_populates='user', cascade='all,delete-orphan'
     )
+    account: Mapped[Optional['Account']] = relationship(back_populates='users')
+    account_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey('accounts.id')
+    )
 
 
 class Signature(Base):
@@ -37,13 +41,25 @@ class Signature(Base):
     due_date: Mapped[date]
 
 
+class Account(Base):
+    __tablename__ = 'accounts'
+    id: Mapped[int] = mapped_column(primary_key=True)
+    category: Mapped['Category'] = relationship(back_populates='accounts')
+    category_id: Mapped[int] = mapped_column(ForeignKey('categories.id'))
+    login: Mapped[str]
+    password: Mapped[str]
+    users_number: Mapped[int]
+    users: Mapped[List['User']] = relationship(
+        back_populates='account', cascade='all,set null'
+    )
+
+
 class Plan(Base):
     __tablename__ = 'plans'
     id: Mapped[int] = mapped_column(primary_key=True)
     name: Mapped[str]
     value: Mapped[float]
     days: Mapped[int]
-    accounts_number: Mapped[int]
     message: Mapped[str]
     signatures: Mapped[List['Signature']] = relationship(
         back_populates='plan', cascade='all,delete-orphan'
@@ -60,6 +76,9 @@ class Category(Base):
         default='Nenhuma'
     )
     plans: Mapped[List['Plan']] = relationship(
+        back_populates='category', cascade='all,delete-orphan'
+    )
+    accounts: Mapped[List['Account']] = relationship(
         back_populates='category', cascade='all,delete-orphan'
     )
 
