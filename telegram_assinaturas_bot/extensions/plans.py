@@ -3,12 +3,51 @@ from telebot.util import quick_markup
 
 from telegram_assinaturas_bot.database import Session
 from telegram_assinaturas_bot.models import Category, Plan
-from telegram_assinaturas_bot.utils import get_plans_reply_markup
+from telegram_assinaturas_bot.utils import get_categories_reply_markup
 
 plan_data = {}
 
 
 def init_bot(bot, start):
+    @bot.callback_query_handler(
+        func=lambda c: 'show_categories_and_plans:' in c.data
+    )
+    def show_categories_and_plans(callback_query):
+        reply_markup = {}
+        category_id = int(callback_query.data.split(':')[1])
+        action = callback_query.data.split(':')[2]
+        args = callback_query.data.split(':')[3:]
+        with Session() as session:
+            category_model = session.get(Category, category_id)
+            for child_category_model in session.scalars(
+                select(Category)
+            ).all():
+                if (
+                    child_category_model.parent_category_name
+                    == category_model.name
+                ):
+                    reply_markup[child_category_model.name] = {
+                        'callback_data': f'show_categories_and_plans:{child_category_model.id}:'
+                        + ':'.join([action, *args])
+                    }
+            for plan_model in category_model.plans:
+                if plan_model.accounts_number < len(plan_model.signatures):
+                    reply_markup[
+                        f'{plan_model.name} - {plan_model.days} Dias - R${plan_model.value:.2f}'.replace(
+                            '.', ','
+                        )
+                    ] = {
+                        'callback_data': ':'.join(
+                            [action, str(plan_model.id), *args]
+                        )
+                    }
+            reply_markup['Voltar'] = {'callback_data': 'return_to_main_menu'}
+            bot.send_message(
+                callback_query.message.chat.id,
+                'Escolha uma opção',
+                reply_markup=quick_markup(reply_markup, row_width=1),
+            )
+
     @bot.callback_query_handler(func=lambda c: c.data == 'add_plan')
     def add_plan(callback_query):
         with Session() as session:
@@ -109,7 +148,7 @@ def init_bot(bot, start):
             callback_query.message.chat.id,
             'Planos',
             reply_markup=quick_markup(
-                get_plans_reply_markup('edit_plan_message'), row_width=1
+                get_categories_reply_markup('edit_plan_message'), row_width=1
             ),
         )
 
@@ -137,7 +176,7 @@ def init_bot(bot, start):
             callback_query.message.chat.id,
             'Planos',
             reply_markup=quick_markup(
-                get_plans_reply_markup('show_plan'), row_width=1
+                get_categories_reply_markup('show_plan'), row_width=1
             ),
         )
 

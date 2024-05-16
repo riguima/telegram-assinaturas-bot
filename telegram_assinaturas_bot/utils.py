@@ -4,26 +4,21 @@ from pytz import timezone
 from sqlalchemy import select
 
 from telegram_assinaturas_bot.database import Session
-from telegram_assinaturas_bot.models import Plan
+from telegram_assinaturas_bot.models import Category
 
 
 def get_today_date():
     return datetime.now(timezone('America/Sao_Paulo')).date()
 
 
-def get_plans_reply_markup(action, *args):
+def get_categories_reply_markup(action, *args):
     reply_markup = {}
     with Session() as session:
-        for plan_model in session.scalars(select(Plan)).all():
-            if plan_model.accounts_number < len(plan_model.signatures):
-                reply_markup[
-                    f'{plan_model.name} - {plan_model.days} Dias - R${plan_model.value:.2f}'.replace(
-                        '.', ','
-                    )
-                ] = {
-                    'callback_data': ':'.join(
-                        [action, str(plan_model.id), *args]
-                    )
+        for category_model in session.scalars(select(Category)).all():
+            if category_model.parent_category_name == 'Nenhuma':
+                reply_markup[category_model.name] = {
+                    'callback_data': f'show_categories_and_plans:{category_model.id}:'
+                    + ':'.join([action, *args])
                 }
-    reply_markup['Voltar'] = {'callback_data': 'return_to_main_menu'}
-    return reply_markup
+        reply_markup['Voltar'] = {'callback_data': 'return_to_main_menu'}
+        return reply_markup

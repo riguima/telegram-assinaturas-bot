@@ -6,7 +6,7 @@ from telebot.util import quick_markup
 
 from telegram_assinaturas_bot.database import Session
 from telegram_assinaturas_bot.models import Plan, Signature, User
-from telegram_assinaturas_bot.utils import (get_plans_reply_markup,
+from telegram_assinaturas_bot.utils import (get_categories_reply_markup,
                                             get_today_date)
 
 
@@ -154,7 +154,7 @@ def init_bot(bot, start):
             callback_query.message.chat.id,
             'Escolha o plano',
             reply_markup=quick_markup(
-                get_plans_reply_markup('add_member_plan', username),
+                get_categories_reply_markup('add_member_plan', username),
                 row_width=1,
             ),
         )

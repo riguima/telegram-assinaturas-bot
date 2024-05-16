@@ -11,7 +11,7 @@ from telebot.util import quick_markup
 from telegram_assinaturas_bot.config import config
 from telegram_assinaturas_bot.database import Session
 from telegram_assinaturas_bot.models import Payment, Plan, Signature, User
-from telegram_assinaturas_bot.utils import (get_plans_reply_markup,
+from telegram_assinaturas_bot.utils import (get_categories_reply_markup,
                                             get_today_date)
 
 mercado_pago_sdk = mercadopago.SDK(config['MERCADO_PAGO_ACCESS_TOKEN'])
@@ -86,7 +86,7 @@ def init_bot(bot, start):
             callback_query.message.chat.id,
             'Escolha o plano',
             reply_markup=quick_markup(
-                get_plans_reply_markup('sign'),
+                get_categories_reply_markup('sign'),
                 row_width=1,
             ),
         )

@@ -55,8 +55,9 @@ class Category(Base):
     __tablename__ = 'categories'
     id: Mapped[int] = mapped_column(primary_key=True)
     name: Mapped[str]
-    parent_category_name: Mapped[str]
-    child_category_name: Mapped[str]
+    parent_category_name: Mapped[Optional[str]] = mapped_column(
+        default='Nenhuma'
+    )
     plans: Mapped[List['Plan']] = relationship(
         back_populates='category', cascade='all,delete-orphan'
     )

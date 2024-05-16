@@ -34,9 +34,6 @@ def init_bot(bot, start):
                         'Editar Nome': {
                             'callback_data': f'edit_category_name:{category_model.id}'
                         },
-                        'Editar Subcategoria': {
-                            'callback_data': f'edit_child_category:{category_model.id}'
-                        },
                         'Editar Categoria Pai': {
                             'callback_data': f'edit_parent_category_name:{category_model.id}'
                         },
@@ -66,43 +63,6 @@ def init_bot(bot, start):
             session.commit()
             bot.send_message(message.chat.id, 'Nome da Categoria Alterada!')
             start(message)
-
-    @bot.callback_query_handler(
-        func=lambda c: 'edit_child_category_name:' in c.data
-    )
-    def edit_child_category_name(callback_query):
-        category_id = int(callback_query.data.split(':')[-1])
-        with Session() as session:
-            reply_markup = {}
-            for category_model in session.scalars(select(Category)).all():
-                if category_model.name != category_model.child_category_name:
-                    reply_markup[category_model.name] = {
-                        'callback_data': f'edit_child_category_name_action:{category_id}:{category_model.id}'
-                    }
-            reply_markup['Voltar'] = {'callback_data': 'return_to_main_menu'}
-        bot.send_message(
-            callback_query.message.chat.id,
-            'Escolha a Subcategoria',
-            reply_markup=quick_markup(reply_markup, row_width=1),
-        )
-
-    @bot.callback_query_handler(
-        func=lambda c: 'edit_child_category_name_action:' in c.data
-    )
-    def edit_child_category_name_action(callback_query):
-        category_id, child_category_id = callback_query.data.split(':')[1:]
-        with Session() as session:
-            category_model = session.get(Category, int(category_id))
-            child_category_model = session.get(
-                Category, int(child_category_id)
-            )
-            category_model.child_category_name = child_category_model.name
-            child_category_model.parent_category_name = category_model.name
-            session.commit()
-            bot.send_message(
-                callback_query.message.chat.id, 'Subcategoria Alterada!'
-            )
-            start(callback_query.message)
 
     @bot.callback_query_handler(
         func=lambda c: 'edit_parent_category_name:' in c.data
