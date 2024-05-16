@@ -6,6 +6,34 @@ from telegram_assinaturas_bot.models import Category
 
 
 def init_bot(bot, start):
+    @bot.callback_query_handler(func=lambda c: c.data == 'add_category')
+    def add_category(callback_query):
+        bot.send_message(callback_query.message.chat.id, 'Digite o nome da categoria')
+        bot.register_next_step_handler(callback_query.message, on_add_category_name)
+
+    def on_add_category_name(message):
+        reply_markup = {}
+        with Session() as session:
+            query = select(Category).where(Category.parent_category_name == 'Nenhuma')
+            for category_model in session.scalars(query).all():
+                reply_markup[category_model.name] = {'callback_data': f'add_category:{category_model.id}:{message.text}'}
+            reply_markup['Nenhuma'] = {'callback_data': f'add_category:0:{message.text}'}
+        bot.send_message(message.chat.id, 'Escolha uma Subcategoria')
+
+    @bot.callback_query_handler(func=lambda c: 'add_category:' in c.data)
+    def add_category_action(callback_query):
+        parent_category_id, category_name = callback_query.data.split(':')[1:]
+        with Session() as session:
+            parent_category_model = session.get(Category, int(parent_category_id))
+            category_model = Category(
+                parent_category_name=parent_category_model.name,
+                name=category_name,
+            )
+            session.add(category_model)
+            session.commit()
+            bot.send_message(callback_query.message.chat.id, 'Categoria Adicionada!')
+            start(callback_query.message)
+    
     @bot.callback_query_handler(func=lambda c: c.data == 'show_categories')
     def show_categories(callback_query):
         with Session() as session:
