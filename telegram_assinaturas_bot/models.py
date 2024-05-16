@@ -47,6 +47,7 @@ class Plan(Base):
     signatures: Mapped[List['Signature']] = relationship(
         back_populates='plan', cascade='all,delete-orphan'
     )
+    category: Mapped['Category'] = relationship(back_populates='plans')
 
 
 class Category(Base):
@@ -55,6 +56,9 @@ class Category(Base):
     name: Mapped[str]
     parent_category_name: Mapped[str]
     child_category_name: Mapped[str]
+    plans: Mapped[List['Plan']] = relationship(
+        back_populates='category', cascade='all,delete-orphan'
+    )
 
 
 class Payment(Base):
