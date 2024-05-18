@@ -1,11 +1,11 @@
-import re
 from datetime import timedelta
 
 from sqlalchemy import select
 from telebot.util import quick_markup
 
+from telegram_assinaturas_bot.config import config
 from telegram_assinaturas_bot.database import Session
-from telegram_assinaturas_bot.models import Plan, Signature, User
+from telegram_assinaturas_bot.models import Account, Plan, Signature, User
 from telegram_assinaturas_bot.utils import (get_categories_reply_markup,
                                             get_today_date)
 
@@ -28,9 +28,23 @@ def init_bot(bot, start):
 
     @bot.callback_query_handler(func=lambda c: c.data == 'show_members')
     def show_members(callback_query):
+        bot.send_message(
+            callback_query.message.chat.id,
+            'Membros',
+            reply_markup=quick_markup(
+                {
+                    'Buscar Membros': {'callback_data': 'search_members'},
+                    'Ver Membros': {'callback_data': 'see_members'},
+                    'Voltar': {'callback_data': 'return_to_main_menu'},
+                },
+                row_width=1,
+            ),
+        )
+
+    @bot.callback_query_handler(func=lambda c: c.data == 'see_members')
+    def see_members(callback_query):
         with Session() as session:
             options = {}
-            options['Buscar Membros'] = {'callback_data': 'search_members'}
             for user_model in session.scalars(select(User)).all():
                 options[user_model.username] = {
                     'callback_data': f'show_member:{user_model.username}'
@@ -143,26 +157,22 @@ def init_bot(bot, start):
                 ),
             )
 
-    @bot.callback_query_handler(
-        func=lambda c: bool(
-            re.findall(r'add_member_plan:[^:]+$', c.data, re.DOTALL)
-        )
-    )
+    @bot.callback_query_handler(func=lambda c: 'add_member_plan:' in c.data)
     def add_member_plan(callback_query):
         username = callback_query.data.split(':')[-1]
         bot.send_message(
             callback_query.message.chat.id,
             'Escolha o plano',
             reply_markup=quick_markup(
-                get_categories_reply_markup('add_member_plan', username),
+                get_categories_reply_markup(
+                    'add_member_plan_action', username
+                ),
                 row_width=1,
             ),
         )
 
     @bot.callback_query_handler(
-        func=lambda c: bool(
-            re.findall(r'add_member_plan:.+?:.+?', c.data, re.DOTALL)
-        )
+        func=lambda c: 'add_member_plan_action:' in c.data
     )
     def add_member_plan_action(callback_query):
         plan_id, username = callback_query.data.split(':')[1:]
@@ -181,11 +191,38 @@ def init_bot(bot, start):
                 query = select(User).where(User.username == username)
                 user_model = session.scalars(query).first()
                 plan_model = session.get(Plan, int(plan_id))
+                query = select(Account).where(Account.plan_id == plan_model.id)
+                account = None
+                for account_model in session.scalars(query).all():
+                    if account_model.signatures_number > len(
+                        account_model.signatures
+                    ):
+                        account = account_model
+                if account is None:
+                    if plan_model.accounts:
+                        signatures_number = plan_model.accounts[0].signatures_number
+                    else:
+                        signatures_number = 1
+                    account_model = Account(
+                        plan_id=plan_model.id,
+                        message='Conta Inativa',
+                        signatures_number=signatures_number,
+                    )
+                    session.add(account_model)
+                    session.commit()
+                    session.flush()
+                    account = account_model
+                    for admin in config['ADMINS']:
+                        bot.send_message(
+                            admin,
+                            f'Nova conta adicionada! - {plan_model.name}',
+                        )
                 signature_model = Signature(
                     user=user_model,
                     plan=plan_model,
                     due_date=get_today_date()
                     + timedelta(days=int(message.text)),
+                    account=account,
                 )
                 session.add(signature_model)
                 session.commit()

@@ -21,10 +21,6 @@ class User(Base):
     payments: Mapped[List['Payment']] = relationship(
         back_populates='user', cascade='all,delete-orphan'
     )
-    account: Mapped[Optional['Account']] = relationship(back_populates='users')
-    account_id: Mapped[Optional[int]] = mapped_column(
-        ForeignKey('accounts.id')
-    )
 
 
 class Signature(Base):
@@ -34,6 +30,12 @@ class Signature(Base):
     user_id: Mapped[int] = mapped_column(ForeignKey('users.id'))
     plan: Mapped['Plan'] = relationship(back_populates='signatures')
     plan_id: Mapped[int] = mapped_column(ForeignKey('plans.id'))
+    account: Mapped['Account'] = relationship(
+        back_populates='signatures'
+    )
+    account_id: Mapped[int] = mapped_column(
+        ForeignKey('accounts.id')
+    )
     payment_id: Mapped[Optional[str]]
     create_date: Mapped[Optional[date]] = mapped_column(
         default=(datetime.now() - timedelta(hours=3)).date()
@@ -44,13 +46,12 @@ class Signature(Base):
 class Account(Base):
     __tablename__ = 'accounts'
     id: Mapped[int] = mapped_column(primary_key=True)
-    category: Mapped['Category'] = relationship(back_populates='accounts')
-    category_id: Mapped[int] = mapped_column(ForeignKey('categories.id'))
-    login: Mapped[str]
-    password: Mapped[str]
-    users_number: Mapped[int]
-    users: Mapped[List['User']] = relationship(
-        back_populates='account', cascade='all,set null'
+    plan: Mapped['Plan'] = relationship(back_populates='accounts')
+    plan_id: Mapped[int] = mapped_column(ForeignKey('plans.id'))
+    message: Mapped[str]
+    signatures_number: Mapped[Optional[int]] = mapped_column(default=1)
+    signatures: Mapped[List['Signature']] = relationship(
+        back_populates='account'
     )
 
 
@@ -60,12 +61,14 @@ class Plan(Base):
     name: Mapped[str]
     value: Mapped[float]
     days: Mapped[int]
-    message: Mapped[str]
     signatures: Mapped[List['Signature']] = relationship(
         back_populates='plan', cascade='all,delete-orphan'
     )
     category: Mapped['Category'] = relationship(back_populates='plans')
     category_id: Mapped[int] = mapped_column(ForeignKey('categories.id'))
+    accounts: Mapped[List['Account']] = relationship(
+        back_populates='plan', cascade='all,delete-orphan'
+    )
 
 
 class Category(Base):
@@ -76,9 +79,6 @@ class Category(Base):
         default='Nenhuma'
     )
     plans: Mapped[List['Plan']] = relationship(
-        back_populates='category', cascade='all,delete-orphan'
-    )
-    accounts: Mapped[List['Account']] = relationship(
         back_populates='category', cascade='all,delete-orphan'
     )
 

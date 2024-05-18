@@ -10,9 +10,9 @@ plan_data = {}
 
 def init_bot(bot, start):
     @bot.callback_query_handler(
-        func=lambda c: 'show_categories_and_plans:' in c.data
+        func=lambda c: 'show_categories:' in c.data
     )
-    def show_categories_and_plans(callback_query):
+    def show_categories(callback_query):
         reply_markup = {}
         category_id = int(callback_query.data.split(':')[1])
         action = callback_query.data.split(':')[2]
@@ -26,23 +26,22 @@ def init_bot(bot, start):
                     child_category_model.parent_category_name
                     == category_model.name
                 ):
-                    reply_markup[child_category_model.name] = {
-                        'callback_data': f'show_categories_and_plans:{child_category_model.id}:'
+                    reply_markup['🗂 ' + child_category_model.name] = {
+                        'callback_data': f'show_categories:{child_category_model.id}:'
                         + ':'.join([action, *args])
                     }
             for plan_model in category_model.plans:
-                if plan_model.accounts_number > len(plan_model.signatures):
-                    reply_markup[
-                        f'{plan_model.name} - {plan_model.days} Dias - R${plan_model.value:.2f}'.replace(
-                            '.', ','
-                        )
-                    ] = {
-                        'callback_data': ':'.join(
-                            [action, str(plan_model.id), *args]
-                        )
-                    }
+                reply_markup[
+                    f'{plan_model.name} - {plan_model.days} Dias - R${plan_model.value:.2f}'.replace(
+                        '.', ','
+                    )
+                ] = {
+                    'callback_data': ':'.join(
+                        [action, str(plan_model.id), *args]
+                    )
+                }
             reply_markup['Voltar'] = {
-                'callback_data': 'return_to_categories_menu'
+                'callback_data': f'return_to_categories_menu:{action}'
             }
             bot.send_message(
                 callback_query.message.chat.id,
@@ -51,14 +50,15 @@ def init_bot(bot, start):
             )
 
     @bot.callback_query_handler(
-        func=lambda c: c.data == 'return_to_categories_menu'
+        func=lambda c: 'return_to_categories_menu:' in c.data
     )
     def return_to_categories_menu(callback_query):
+        action = callback_query.data.split(':')[-1]
         bot.send_message(
             callback_query.message.chat.id,
             'Planos',
             reply_markup=quick_markup(
-                get_categories_reply_markup('show_plan'), row_width=1
+                get_categories_reply_markup(action), row_width=1
             ),
         )
 
@@ -113,47 +113,24 @@ def init_bot(bot, start):
 
     def on_plan_days(message):
         try:
-            plan_data[message.chat.username]['plan_days'] = int(message.text)
-            bot.send_message(
-                message.chat.id, 'Digite o número de contas para o plano'
-            )
-            bot.register_next_step_handler(message, on_plan_accounts_number)
+            data = plan_data[message.chat.username]
+            with Session() as session:
+                category_model = session.get(Category, data['category_id'])
+                plan_model = Plan(
+                    value=data['plan_value'],
+                    name=data['plan_name'],
+                    days=int(message.text),
+                    category=category_model,
+                )
+                session.add(plan_model)
+                session.commit()
+                bot.send_message(message.chat.id, 'Plano Adicionado!')
+            start(message)
         except ValueError:
             bot.send_message(
                 message.chat.id,
                 'Valor inválido, digite como no exemplo: 10 ou 15',
             )
-            start(message)
-
-    def on_plan_accounts_number(message):
-        try:
-            plan_data[message.chat.username]['plan_accounts_number'] = int(
-                message.text
-            )
-            bot.send_message(message.chat.id, 'Digite a mensagem para o plano')
-            bot.register_next_step_handler(message, on_plan_message)
-        except ValueError:
-            bot.send_message(
-                message.chat.id,
-                'Valor inválido, digite como no exemplo: 10 ou 15',
-            )
-            start(message)
-
-    def on_plan_message(message):
-        data = plan_data[message.chat.username]
-        with Session() as session:
-            category_model = session.get(Category, data['category_id'])
-            plan_model = Plan(
-                value=data['plan_value'],
-                name=data['plan_name'],
-                message=message.text,
-                days=data['plan_days'],
-                accounts_number=data['plan_accounts_number'],
-                category=category_model,
-            )
-            session.add(plan_model)
-            session.commit()
-            bot.send_message(message.chat.id, 'Plano Adicionado!')
             start(message)
 
     @bot.callback_query_handler(func=lambda c: c.data == 'edit_plan_message')
@@ -203,6 +180,9 @@ def init_bot(bot, start):
             reply_markup=quick_markup(
                 {
                     'Editar Plano': {'callback_data': f'edit_plan:{plan_id}'},
+                    'Editar Acessos por Conta': {
+                        'callback_data': f'edit_signatures_number:{plan_id}'
+                    },
                     'Remover Plano': {
                         'callback_data': f'remove_plan:{plan_id}'
                     },
@@ -252,6 +232,37 @@ def init_bot(bot, start):
                 bot.send_message(message.chat.id, 'Plano Editado!')
                 start(message)
         except ValueError:
-            bot.register_next_step_handler(
-                message, lambda m: on_edit_plan_value(m, plan_id)
+            bot.send_message(
+                message.chat.id,
+                'Valor inválido, digite como no exemplo: 10 ou 19,90',
             )
+            start(message)
+
+    @bot.callback_query_handler(
+        func=lambda c: 'edit_signatures_number:' in c.data
+    )
+    def edit_signatures_number(callback_query):
+        plan_id = int(callback_query.data.split(':')[-1])
+        bot.send_message(
+            callback_query.message.chat.id,
+            'Digite o número de acessos por conta',
+        )
+        bot.register_next_step_handler(
+            callback_query.message, lambda m: on_signatures_number(m, plan_id)
+        )
+
+    def on_signatures_number(message, plan_id):
+        try:
+            with Session() as session:
+                plan_model = session.get(Plan, plan_id)
+                for account_model in plan_model.accounts:
+                    account_model.signatures_number = int(message.text)
+                session.commit()
+                bot.send_message(message.chat.id, 'Acessos por Conta Editado!')
+                start(message)
+        except ValueError:
+            bot.send_message(
+                message.chat.id,
+                'Valor inválido, digite como no exemplo: 10 ou 15',
+            )
+            start(message)

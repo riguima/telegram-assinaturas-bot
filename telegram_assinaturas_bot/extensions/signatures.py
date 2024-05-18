@@ -70,9 +70,10 @@ def init_bot(bot, start):
         signature_id = int(callback_query.data.split(':')[-1])
         with Session() as session:
             signature_model = session.get(Signature, signature_id)
+            message = f'Status: Ativa - {signature_model.plan.name} - {signature_model.plan.days} Dias - R${signature_model.plan.value:.2f}\nVencimento do plano: {signature_model.due_date:%d/%m/%Y}\n\n{signature_model.account.message}'
             bot.send_message(
                 callback_query.message.chat.id,
-                f'Status: Ativa - {signature_model.plan.name} - {signature_model.plan.days} Dias - R${signature_model.plan.value:.2f}\nVencimento do plano: {signature_model.due_date:%d/%m/%Y}\n\n{signature_model.plan.message}',
+                message,
                 reply_markup=quick_markup(
                     {
                         'Voltar': {'callback_data': 'return_to_main_menu'},

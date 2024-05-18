@@ -16,8 +16,8 @@ def get_categories_reply_markup(action, *args):
     with Session() as session:
         for category_model in session.scalars(select(Category)).all():
             if category_model.parent_category_name == 'Nenhuma':
-                reply_markup[category_model.name] = {
-                    'callback_data': f'show_categories_and_plans:{category_model.id}:'
+                reply_markup['🗂 ' + category_model.name] = {
+                    'callback_data': f'show_categories:{category_model.id}:'
                     + ':'.join([action, *args])
                 }
         reply_markup['Voltar'] = {'callback_data': 'return_to_main_menu'}
