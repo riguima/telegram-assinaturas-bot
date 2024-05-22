@@ -9,9 +9,7 @@ plan_data = {}
 
 
 def init_bot(bot, start):
-    @bot.callback_query_handler(
-        func=lambda c: 'show_categories:' in c.data
-    )
+    @bot.callback_query_handler(func=lambda c: 'show_categories:' in c.data)
     def show_categories(callback_query):
         reply_markup = {}
         category_id = int(callback_query.data.split(':')[1])
@@ -180,9 +178,6 @@ def init_bot(bot, start):
             reply_markup=quick_markup(
                 {
                     'Editar Plano': {'callback_data': f'edit_plan:{plan_id}'},
-                    'Editar Acessos por Conta': {
-                        'callback_data': f'edit_signatures_number:{plan_id}'
-                    },
                     'Remover Plano': {
                         'callback_data': f'remove_plan:{plan_id}'
                     },
@@ -235,34 +230,5 @@ def init_bot(bot, start):
             bot.send_message(
                 message.chat.id,
                 'Valor inválido, digite como no exemplo: 10 ou 19,90',
-            )
-            start(message)
-
-    @bot.callback_query_handler(
-        func=lambda c: 'edit_signatures_number:' in c.data
-    )
-    def edit_signatures_number(callback_query):
-        plan_id = int(callback_query.data.split(':')[-1])
-        bot.send_message(
-            callback_query.message.chat.id,
-            'Digite o número de acessos por conta',
-        )
-        bot.register_next_step_handler(
-            callback_query.message, lambda m: on_signatures_number(m, plan_id)
-        )
-
-    def on_signatures_number(message, plan_id):
-        try:
-            with Session() as session:
-                plan_model = session.get(Plan, plan_id)
-                for account_model in plan_model.accounts:
-                    account_model.signatures_number = int(message.text)
-                session.commit()
-                bot.send_message(message.chat.id, 'Acessos por Conta Editado!')
-                start(message)
-        except ValueError:
-            bot.send_message(
-                message.chat.id,
-                'Valor inválido, digite como no exemplo: 10 ou 15',
             )
             start(message)

@@ -7,8 +7,9 @@ from telebot.util import quick_markup
 
 from telegram_assinaturas_bot.config import config
 from telegram_assinaturas_bot.database import Session
-from telegram_assinaturas_bot.models import Signature, User, Plan, Account
-from telegram_assinaturas_bot.utils import get_categories_reply_markup, get_today_date
+from telegram_assinaturas_bot.models import Account, Plan, Signature, User
+from telegram_assinaturas_bot.utils import (get_categories_reply_markup,
+                                            get_today_date)
 
 bot = telebot.TeleBot(config['BOT_TOKEN'])
 
@@ -71,7 +72,9 @@ def show_subscribers(callback_query):
         bot.send_message(
             callback_query.message.chat.id,
             f'Número de Usuários: {len(users)}\nAtivos: {actives}\nInativos: {len(users) - actives}',
-            reply_markup=quick_markup(get_categories_reply_markup('show_subs_of_plan'), row_width=1),
+            reply_markup=quick_markup(
+                get_categories_reply_markup('show_subs_of_plan'), row_width=1
+            ),
         )
 
 
@@ -95,7 +98,9 @@ def show_subscribers_of_plan(callback_query):
             reply_markup[label] = {
                 'callback_data': f'show_account_subs:{account_model.id}'
             }
-        reply_markup['Voltar'] = {'callback_data': 'return_to_categories_menu:show_subs_of_plan'}
+        reply_markup['Voltar'] = {
+            'callback_data': 'return_to_categories_menu:show_subs_of_plan'
+        }
         bot.send_message(
             callback_query.message.chat.id,
             f'Ativos: {actives}',
@@ -119,7 +124,9 @@ def show_account_subscribers(callback_query):
             f'Ativos: {actives}\n\n{users}',
             reply_markup=quick_markup(
                 {
-                    'Voltar': {'callback_data': 'return_to_categories_menu:show_subs_of_plan'},
+                    'Voltar': {
+                        'callback_data': 'return_to_categories_menu:show_subs_of_plan'
+                    },
                 },
                 row_width=1,
             ),

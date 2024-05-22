@@ -3,11 +3,13 @@ from datetime import timedelta
 from sqlalchemy import select
 from telebot.util import quick_markup
 
-from telegram_assinaturas_bot.config import config
 from telegram_assinaturas_bot.database import Session
-from telegram_assinaturas_bot.models import Account, Plan, Signature, User
+from telegram_assinaturas_bot.models import Account, Signature, User
 from telegram_assinaturas_bot.utils import (get_categories_reply_markup,
                                             get_today_date)
+
+
+current_username = None
 
 
 def init_bot(bot, start):
@@ -94,7 +96,7 @@ def init_bot(bot, start):
                     reply_markup=quick_markup(
                         {
                             'Adicionar Plano': {
-                                'callback_data': f'add_member_plan:{user_model.username}',
+                                'callback_data': f'add_member_account:{user_model.username}',
                             },
                             'Remover Membro': {
                                 'callback_data': f'remove_member:{user_model.username}'
@@ -119,7 +121,7 @@ def init_bot(bot, start):
                 'callback_data': f'show_member_signature:{signature_model.id}'
             }
         reply_markup['Adicionar Plano'] = {
-            'callback_data': f'add_member_plan:{signatures_models[0].user.username}'
+            'callback_data': f'add_member_account:{signatures_models[0].user.username}'
         }
         reply_markup['Remover Membro'] = {
             'callback_data': f'remove_member:{signatures_models[0].user.username}'
@@ -135,6 +137,7 @@ def init_bot(bot, start):
         func=lambda c: 'show_member_signature:' in c.data
     )
     def show_member_signature(callback_query):
+        global current_username
         signature_id = int(callback_query.data.split(':')[-1])
         with Session() as session:
             signature_model = session.get(Signature, signature_id)
@@ -143,90 +146,89 @@ def init_bot(bot, start):
                 if get_today_date() <= signature_model.due_date
                 else 'Inativa'
             )
+            current_username = signature_model.user.username
             bot.send_message(
                 callback_query.message.chat.id,
-                f'Status: {status} - {signature_model.plan.name} - {signature_model.plan.days} Dias - R${signature_model.plan.value:.2f}\n\nVencimento do plano: {signature_model.due_date:%d/%m/%Y}\n\nDeseja cancelar essa assinatura?',
+                f'Status: {status} - {signature_model.plan.name} - {signature_model.plan.days} Dias - R${signature_model.plan.value:.2f}\n\nVencimento do plano: {signature_model.due_date:%d/%m/%Y}',
                 reply_markup=quick_markup(
                     {
-                        'Sim': {
+                        'Escolher Conta': {
+                            'callback_data': f'show_accounts_of_plan:{signature_model.plan.id}:choose_account'
+                        },
+                        'Cancelar Assinatura': {
                             'callback_data': f'cancel_signature:{signature_id}'
                         },
-                        'Não': {'callback_data': 'return_to_main_menu'},
+                        'Voltar': {'callback_data': 'return_to_main_menu'},
                     },
                     row_width=1,
                 ),
             )
 
-    @bot.callback_query_handler(func=lambda c: 'add_member_plan:' in c.data)
-    def add_member_plan(callback_query):
-        username = callback_query.data.split(':')[-1]
+    @bot.callback_query_handler(func=lambda c: 'choose_account:' in c.data)
+    def choose_account(callback_query):
+        account_id = int(callback_query.data.split(':')[-1])
+        bot.send_message(callback_query.message.chat.id, 'Escolha uma opção', reply_markup=quick_markup({
+            'Adicionar Conta ao Plano': {'callback_data': f'add_account_in_plan:{account_id}'},
+            'Voltar': {'callback_data': 'return_to_main_menu'},
+        }))
+
+    @bot.callback_query_handler(func=lambda c: 'add_account_in_plan:' in c.data)
+    def add_account_in_plan(callback_query):
+        account_id = int(callback_query.data.split(':')[-1])
+        with Session() as session:
+            account_model = session.get(Account, account_id)
+            query = select(Signature).join(User).where(User.username == current_username).where(Signature.account == None)
+            signature_model = session.scalars(query).first()
+            signature_model.account_id = account_model.id
+            session.commit()
+        bot.send_message(callback_query.message.chat.id, 'Conta Adicionada!')
+        start(callback_query.message)
+
+    @bot.callback_query_handler(func=lambda c: 'add_member_account:' in c.data)
+    def add_member_account(callback_query):
+        global current_username
+        current_username = callback_query.data.split(':')[-1]
         bot.send_message(
             callback_query.message.chat.id,
-            'Escolha o plano',
+            'Escolha a conta',
             reply_markup=quick_markup(
                 get_categories_reply_markup(
-                    'add_member_plan_action', username
+                    'show_accounts_of_plan', 'attach_account'
                 ),
                 row_width=1,
             ),
         )
 
     @bot.callback_query_handler(
-        func=lambda c: 'add_member_plan_action:' in c.data
+        func=lambda c: 'attach_account:' in c.data
     )
-    def add_member_plan_action(callback_query):
-        plan_id, username = callback_query.data.split(':')[1:]
+    def add_member_account_action(callback_query):
+        account_id = callback_query.data.split(':')[1:]
         bot.send_message(
             callback_query.message.chat.id,
-            'Digite a quantidade de dias para o plano',
+            'Digite a quantidade de dias de acesso',
         )
         bot.register_next_step_handler(
             callback_query.message,
-            lambda m: on_member_plan_days(m, plan_id, username),
+            lambda m: on_signatures_days(m, account_id),
         )
 
-    def on_member_plan_days(message, plan_id, username):
+    def on_signatures_days(message, account_id):
         try:
             with Session() as session:
-                query = select(User).where(User.username == username)
+                query = select(User).where(User.username == current_username)
                 user_model = session.scalars(query).first()
-                plan_model = session.get(Plan, int(plan_id))
-                query = select(Account).where(Account.plan_id == plan_model.id)
-                account = None
-                for account_model in session.scalars(query).all():
-                    if account_model.signatures_number > len(
-                        account_model.signatures
-                    ):
-                        account = account_model
-                if account is None:
-                    if plan_model.accounts:
-                        signatures_number = plan_model.accounts[0].signatures_number
-                    else:
-                        signatures_number = 1
-                    account_model = Account(
-                        plan_id=plan_model.id,
-                        message='Conta Inativa',
-                        signatures_number=signatures_number,
-                    )
-                    session.add(account_model)
-                    session.commit()
-                    session.flush()
-                    account = account_model
-                    for admin in config['ADMINS']:
-                        bot.send_message(
-                            admin,
-                            f'Nova conta adicionada! - {plan_model.name}',
-                        )
+                account_model = session.get(Account, account_id)
                 signature_model = Signature(
                     user=user_model,
-                    plan=plan_model,
+                    plan_id=account_model.plan_id,
                     due_date=get_today_date()
                     + timedelta(days=int(message.text)),
-                    account=account,
+                    account=account_model,
                 )
                 session.add(signature_model)
                 session.commit()
-            bot.send_message(message.chat.id, 'Plano Adicionado!')
+            bot.send_message(message.chat.id, 'Membro Adicionado a Conta!')
         except ValueError:
             bot.send_message(
                 message.chat.id,
