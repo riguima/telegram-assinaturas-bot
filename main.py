@@ -60,6 +60,7 @@ def show_subscribers(callback_query):
     with Session() as session:
         users = session.scalars(select(User)).all()
         actives = 0
+        plan_actives = {}
         for user_model in users:
             query = (
                 select(Signature)
@@ -69,9 +70,17 @@ def show_subscribers(callback_query):
             signatures_models = session.scalars(query).all()
             if signatures_models:
                 actives += 1
+            for signature_model in signatures_models:
+                if plan_actives.get(signature_model.plan.name):
+                    plan_actives[signature_model.plan.name] += 1
+                else:
+                    plan_actives[signature_model.plan.name] = 1
+        plan_message = ''
+        for plan_name, active in plan_actives.items():
+            plan_message += f'{plan_name}: {active}\n'
         bot.send_message(
             callback_query.message.chat.id,
-            f'Número de Usuários: {len(users)}\nAtivos: {actives}\nInativos: {len(users) - actives}',
+            f'Número de Usuários: {len(users)}\nAtivos: {actives}\nInativos: {len(users) - actives}\n\n{plan_message}',
             reply_markup=quick_markup(
                 get_categories_reply_markup('show_subs_of_plan'), row_width=1
             ),

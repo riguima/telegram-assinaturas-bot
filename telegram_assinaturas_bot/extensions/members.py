@@ -87,8 +87,10 @@ def init_bot(bot, start):
             username = callback_query.data.split(':')[-1]
             query = select(User).where(User.username == username)
             user_model = session.scalars(query).first()
-            if user_model.signatures:
-                send_member_menu(callback_query.message, user_model.signatures)
+            query = select(Signature).where(Signature.user_id == user_model.id).where(Signature.due_date >= get_today_date())
+            signatures = session.scalars(query).all()
+            if signatures:
+                send_member_menu(callback_query.message, signatures)
             else:
                 bot.send_message(
                     callback_query.message.chat.id,
@@ -110,13 +112,8 @@ def init_bot(bot, start):
     def send_member_menu(message, signatures_models):
         reply_markup = {}
         for signature_model in signatures_models:
-            status = (
-                'Ativa'
-                if get_today_date() <= signature_model.due_date
-                else 'Inativa'
-            )
             reply_markup[
-                f'Status: {status} - {signature_model.plan.name} - {signature_model.plan.days} Dias - R${signature_model.plan.value:.2f}'
+                f'{signature_model.plan.name} - {signature_model.plan.days} Dias - R${signature_model.plan.value:.2f}'
             ] = {
                 'callback_data': f'show_member_signature:{signature_model.id}'
             }
@@ -141,15 +138,10 @@ def init_bot(bot, start):
         signature_id = int(callback_query.data.split(':')[-1])
         with Session() as session:
             signature_model = session.get(Signature, signature_id)
-            status = (
-                'Ativa'
-                if get_today_date() <= signature_model.due_date
-                else 'Inativa'
-            )
             current_username = signature_model.user.username
             bot.send_message(
                 callback_query.message.chat.id,
-                f'Status: {status} - {signature_model.plan.name} - {signature_model.plan.days} Dias - R${signature_model.plan.value:.2f}\n\nVencimento do plano: {signature_model.due_date:%d/%m/%Y}',
+                f'{signature_model.plan.name} - {signature_model.plan.days} Dias - R${signature_model.plan.value:.2f}\n\nVencimento do plano: {signature_model.due_date:%d/%m/%Y}',
                 reply_markup=quick_markup(
                     {
                         'Escolher Conta': {

@@ -49,7 +49,7 @@ def init_bot(bot, start):
         reply_markup = {}
         for signature_model in signatures_models:
             reply_markup[
-                f'Status: Ativa - {signature_model.plan.name} - {signature_model.plan.days} Dias - R${signature_model.plan.value:.2f}'.replace(
+                f'{signature_model.plan.name} - {signature_model.plan.days} Dias - R${signature_model.plan.value:.2f}'.replace(
                     '.', ','
                 )
             ] = {
@@ -71,9 +71,9 @@ def init_bot(bot, start):
         with Session() as session:
             signature_model = session.get(Signature, signature_id)
             try:
-                message = f'Status: Ativa - {signature_model.plan.name} - {signature_model.plan.days} Dias - R${signature_model.plan.value:.2f}\nVencimento do plano: {signature_model.due_date:%d/%m/%Y}\n\n{signature_model.account.message}'
+                message = f'{signature_model.plan.name} - {signature_model.plan.days} Dias - R${signature_model.plan.value:.2f}\nVencimento do plano: {signature_model.due_date:%d/%m/%Y}\n\n{signature_model.account.message}'
             except AttributeError:
-                message = f'Status: Inativa - {signature_model.plan.name} - {signature_model.plan.days} Dias - R${signature_model.plan.value:.2f}\nVencimento do plano: {signature_model.due_date:%d/%m/%Y}'
+                message = f'{signature_model.plan.name} - {signature_model.plan.days} Dias - R${signature_model.plan.value:.2f}\nVencimento do plano: {signature_model.due_date:%d/%m/%Y}'
             bot.send_message(
                 callback_query.message.chat.id,
                 message,
