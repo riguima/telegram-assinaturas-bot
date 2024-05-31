@@ -1,12 +1,11 @@
-from datetime import timedelta
+import re
 
 from sqlalchemy import select
 from telebot.util import quick_markup
 
 from telegram_assinaturas_bot.database import Session
-from telegram_assinaturas_bot.models import Account, Signature, User
-from telegram_assinaturas_bot.utils import (get_categories_reply_markup,
-                                            get_today_date)
+from telegram_assinaturas_bot.models import Signature, User, Account
+from telegram_assinaturas_bot.utils import get_today_date
 
 
 current_username = None
@@ -100,6 +99,9 @@ def init_bot(bot, start):
                             'Adicionar Plano': {
                                 'callback_data': f'add_member_account:{user_model.username}',
                             },
+                            'Enviar Mensagem': {
+                                'callback_data': f'send_message:{user_model.username}'
+                            },
                             'Remover Membro': {
                                 'callback_data': f'remove_member:{user_model.username}'
                             },
@@ -119,6 +121,9 @@ def init_bot(bot, start):
             }
         reply_markup['Adicionar Plano'] = {
             'callback_data': f'add_member_account:{signatures_models[0].user.username}'
+        }
+        reply_markup['Enviar Mensagem'] = {
+            'callback_data': f'send_message:{signatures_models[0].user.username}'
         }
         reply_markup['Remover Membro'] = {
             'callback_data': f'remove_member:{signatures_models[0].user.username}'
@@ -145,7 +150,7 @@ def init_bot(bot, start):
                 reply_markup=quick_markup(
                     {
                         'Escolher Conta': {
-                            'callback_data': f'show_accounts_of_plan:{signature_model.plan.id}:choose_account'
+                            'callback_data': f'show_accounts_of_plan:{signature_model.plan.id}:choose_account:{signature_model.id}'
                         },
                         'Cancelar Assinatura': {
                             'callback_data': f'cancel_signature:{signature_id}'
@@ -156,21 +161,20 @@ def init_bot(bot, start):
                 ),
             )
 
-    @bot.callback_query_handler(func=lambda c: 'choose_account:' in c.data)
+    @bot.callback_query_handler(func=lambda c: bool(re.findall('^choose_account:', c.data)))
     def choose_account(callback_query):
-        account_id = int(callback_query.data.split(':')[-1])
+        signature_id, account_id = callback_query.data.split(':')[1:]
         bot.send_message(callback_query.message.chat.id, 'Escolha uma opção', reply_markup=quick_markup({
-            'Adicionar Conta ao Plano': {'callback_data': f'add_account_in_plan:{account_id}'},
+            'Adicionar Conta ao Plano': {'callback_data': f'add_account_in_plan:{signature_id}:{account_id}'},
             'Voltar': {'callback_data': 'return_to_main_menu'},
-        }))
+        }, row_width=1))
 
     @bot.callback_query_handler(func=lambda c: 'add_account_in_plan:' in c.data)
     def add_account_in_plan(callback_query):
-        account_id = int(callback_query.data.split(':')[-1])
+        signature_id, account_id = callback_query.data.split(':')[1:]
         with Session() as session:
-            account_model = session.get(Account, account_id)
-            query = select(Signature).join(User).where(User.username == current_username).where(Signature.account == None)
-            signature_model = session.scalars(query).first()
+            account_model = session.get(Account, int(account_id))
+            signature_model = session.get(Signature, int(signature_id))
             signature_model.account_id = account_model.id
             session.commit()
         bot.send_message(callback_query.message.chat.id, 'Conta Adicionada!')
@@ -227,6 +231,32 @@ def init_bot(bot, start):
                 'Valor inválido, digite como no exemplo: 10 ou 15',
             )
         start(message)
+
+    @bot.callback_query_handler(func=lambda c: 'send_message:' in c.data)
+    def send_member_message(callback_query):
+        username = callback_query.data.split(':')[-1]
+        bot.send_message(callback_query.message.chat.id, 'Envie as mensagens que deseja enviar para o membro, utilize as tags: {nome}, digite /stop para parar')
+        bot.register_next_step_handler(callback_query.message, lambda m: on_member_message(m, username))
+
+
+    def on_member_message(message, username, for_send_messages=[]):
+        if message.text == '/stop':
+            sending_message = bot.send_message(message.chat.id, 'Enviando Mensagens...')
+            with Session() as session:
+                query = select(User).where(User.username == username)
+                member = session.scalars(query).first()
+                for for_send_message in for_send_messages:
+                    try:
+                        bot.send_message(str(member.chat_id), for_send_message.text.format(nome=username))
+                    except ApiTelegramException:
+                        continue
+            bot.delete_message(message.chat.id, sending_message.id)
+            bot.send_message(message.chat.id, 'Mensagens Enviadas!')
+            start(message)
+        else:
+            for_send_messages.append(message)
+            bot.register_next_step_handler(message, lambda m: on_member_message(m, username, for_send_messages))
+
 
     @bot.callback_query_handler(func=lambda c: 'remove_member:' in c.data)
     def remove_member_action(callback_query):

@@ -14,6 +14,7 @@ class Base(DeclarativeBase):
 class User(Base):
     __tablename__ = 'users'
     id: Mapped[int] = mapped_column(primary_key=True)
+    chat_id: Mapped[Optional[str]]
     username: Mapped[str]
     signatures: Mapped[List['Signature']] = relationship(
         back_populates='user', cascade='all,delete-orphan'

@@ -15,6 +15,7 @@ selenium = "*"
 flask = "*"
 pyautogui = "*"
 pytz = "*"
+httpx = "*"
 
 [dev-packages]
 blue = "*"

@@ -11,18 +11,20 @@ def init_bot(bot, start):
         func=lambda c: 'show_accounts_of_plan:' in c.data
     )
     def show_accounts_of_plan(callback_query):
-        plan_id, action = callback_query.data.split(':')[-2:]
+        plan_id, action = callback_query.data.split(':')[1:3]
+        args = callback_query.data.split(':')[3:]
         with Session() as session:
             reply_markup = {}
             query = select(Account).where(Account.plan_id == int(plan_id))
             for account_model in session.scalars(query).all():
-                label = (
+                label = f'Membros: {len(account_model.signatures)} '
+                label += (
                     account_model.message
                     if len(account_model.message) < 50
                     else account_model.message[:40] + '...'
                 )
                 reply_markup[label] = {
-                    'callback_data': f'{action}:{account_model.id}'
+                    'callback_data': ':'.join([action, *args, str(account_model.id)]),
                 }
             reply_markup['Voltar'] = {
                 'callback_data': 'return_to_categories_menu:show_accounts_of_plan'

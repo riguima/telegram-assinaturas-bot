@@ -1,6 +1,7 @@
 from importlib import import_module
 
 import telebot
+from telebot.apihelper import ApiTelegramException
 import toml
 from sqlalchemy import select
 from telebot.util import quick_markup
@@ -21,16 +22,22 @@ def start(message):
             query = select(User).where(User.username == message.chat.username)
             user_model = session.scalars(query).first()
             if user_model is None:
-                user_model = User(username=message.chat.username)
+                user_model = User(username=message.chat.username, chat_id=str(message.chat.id))
                 session.add(user_model)
                 session.commit()
                 session.flush()
+            elif user_model.chat_id is None:
+                user_model.chat_id = str(message.chat.id)
+                session.commit()
         options = {
             'Minhas Assinaturas': {
                 'callback_data': f'show_signature:{message.chat.username}'
             },
         }
         if message.chat.id in config['ADMINS']:
+            options['Enviar Mensagem'] = {
+                'callback_data': 'send_message'
+            }
             options['Editar Mensagem do Menu'] = {
                 'callback_data': 'edit_menu_message'
             }
@@ -53,6 +60,64 @@ def start(message):
             message.chat.id,
             'Adicione um arroba para sua conta do Telegram para utilizar esse bot',
         )
+
+
+@bot.callback_query_handler(func=lambda c: c.data == 'send_message')
+def send_message(callback_query):
+    bot.send_message(callback_query.message.chat.id, 'Escolha uma opção', reply_markup=quick_markup({
+        'Enviar Para Todos os Membros': {'callback_data': 'send_message_for_all_members'},
+        'Enviar Somente Para Assinantes': {'callback_data': 'send_message_for_subscribers'},
+    }, row_width=1))
+
+
+@bot.callback_query_handler(func=lambda c: c.data == 'send_message_for_all_members')
+def send_message_for_all_members(callback_query):
+    bot.send_message(callback_query.message.chat.id, 'Envie as mensagens que deseja enviar para todos os membros, utilize as tags: {nome}, digite /stop para parar')
+    bot.register_next_step_handler(callback_query.message, on_message_for_all_members)
+
+
+def on_message_for_all_members(message, for_send_messages=[]):
+    if message.text == '/stop':
+        sending_message = bot.send_message(message.chat.id, 'Enviando Mensagens...')
+        with Session() as session:
+            for member in session.scalars(select(User)).all():
+                for for_send_message in for_send_messages:
+                    try:
+                        bot.send_message(int(member.chat_id), for_send_message.text.format(nome=member.username))
+                    except ApiTelegramException:
+                        continue
+        bot.delete_message(message.chat.id, sending_message.id)
+        bot.send_message(message.chat.id, 'Mensagens Enviadas!')
+        start(message)
+    else:
+        for_send_messages.append(message)
+        bot.register_next_step_handler(message, lambda m: on_message_for_all_members(m, for_send_messages))
+
+
+@bot.callback_query_handler(func=lambda c: c.data == 'send_message_for_subscribers')
+def send_message_for_subscribers(callback_query):
+    bot.send_message(callback_query.message.chat.id, 'Envie as mensagens que deseja enviar para todos os membros ativos, utilize as tags: {nome}, digite /stop para parar')
+    bot.register_next_step_handler(callback_query.message, on_message_for_subscribers)
+
+
+def on_message_for_subscribers(message, for_send_messages=[]):
+    if message.text == '/stop':
+        sending_message = bot.send_message(message.chat.id, 'Enviando Mensagens...')
+        with Session() as session:
+            for member in session.scalars(select(User)).all():
+                query = select(Signature).where(Signature.user_id == member.id).where(Signature.due_date >= get_today_date())
+                if session.scalars(query).all():
+                    for for_send_message in for_send_messages:
+                        try:
+                            bot.send_message(int(member.chat_id), for_send_message.text.format(nome=member.username))
+                        except ApiTelegramException:
+                            continue
+        bot.delete_message(message.chat.id, sending_message.id)
+        bot.send_message(message.chat.id, 'Mensagens Enviadas!')
+        start(message)
+    else:
+        for_send_messages.append(message)
+        bot.register_next_step_handler(message, lambda m: on_message_for_subscribers(m, for_send_messages))
 
 
 @bot.callback_query_handler(func=lambda c: c.data == 'show_subs')
