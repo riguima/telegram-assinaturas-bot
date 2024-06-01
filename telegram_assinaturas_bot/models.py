@@ -31,8 +31,12 @@ class Signature(Base):
     user_id: Mapped[int] = mapped_column(ForeignKey('users.id'))
     plan: Mapped['Plan'] = relationship(back_populates='signatures')
     plan_id: Mapped[int] = mapped_column(ForeignKey('plans.id'))
-    account: Mapped[Optional['Account']] = relationship(back_populates='signatures')
-    account_id: Mapped[Optional[int]] = mapped_column(ForeignKey('accounts.id'))
+    account: Mapped[Optional['Account']] = relationship(
+        back_populates='signatures'
+    )
+    account_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey('accounts.id')
+    )
     payment_id: Mapped[Optional[str]]
     create_date: Mapped[Optional[date]] = mapped_column(
         default=(datetime.now() - timedelta(hours=3)).date()

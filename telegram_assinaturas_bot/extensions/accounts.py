@@ -24,7 +24,9 @@ def init_bot(bot, start):
                     else account_model.message[:40] + '...'
                 )
                 reply_markup[label] = {
-                    'callback_data': ':'.join([action, *args, str(account_model.id)]),
+                    'callback_data': ':'.join(
+                        [action, *args, str(account_model.id)]
+                    ),
                 }
             reply_markup['Voltar'] = {
                 'callback_data': 'return_to_categories_menu:show_accounts_of_plan'

@@ -6,7 +6,7 @@ from main import bot, start
 from telegram_assinaturas_bot.config import config
 from telegram_assinaturas_bot.database import Session
 from telegram_assinaturas_bot.extensions.signatures import mercado_pago_sdk
-from telegram_assinaturas_bot.models import Account, Payment, Plan, Signature
+from telegram_assinaturas_bot.models import Payment, Plan, Signature
 from telegram_assinaturas_bot.utils import get_today_date
 
 if __name__ == '__main__':
@@ -36,5 +36,8 @@ if __name__ == '__main__':
                     session.delete(payment)
                     session.commit()
                     for admin in config['ADMINS']:
-                        bot.send_message(admin, f'Nova Assinatura: {payment.user.username} - {plan_model.name}')
+                        bot.send_message(
+                            admin,
+                            f'Nova Assinatura: {payment.user.username} - {plan_model.name}',
+                        )
                     start(message)
