@@ -41,7 +41,8 @@ def init_bot(bot, start):
                     'Você não possui uma assinatura ativa',
                     reply_markup=quick_markup(
                         {
-                            'Comprar acesso': {'callback_data': 'sign'},
+                            #'Comprar acesso': {'callback_data': 'sign'},
+                            'Comprar acesso': {'callback_data': 'out'},
                             'Voltar': {'callback_data': 'return_to_main_menu'},
                         },
                         row_width=1,

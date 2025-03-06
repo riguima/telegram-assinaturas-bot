@@ -21,9 +21,8 @@ if __name__ == '__main__':
                         int(payment.chat_id),
                         f'Pagamento confirmado, Aguardando liberação...\n\nNº Transação: {payment.payment_id}',
                     )
-                    query = select(Plan).where(
-                        Plan.value == response['transaction_amount']
-                    )
+                    plan_name = response['description'].split(' - ')[0]
+                    query = select(Plan).where(Plan.name == plan_name)
                     plan_model = session.scalars(query).first()
                     signature_model = Signature(
                         user=payment.user,

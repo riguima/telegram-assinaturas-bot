@@ -2,8 +2,8 @@ from sqlalchemy import select
 from telebot.util import quick_markup
 
 from telegram_assinaturas_bot.database import Session
-from telegram_assinaturas_bot.models import Account
-from telegram_assinaturas_bot.utils import get_categories_reply_markup
+from telegram_assinaturas_bot.models import Account, Signature
+from telegram_assinaturas_bot.utils import get_categories_reply_markup, get_today_date
 
 
 def init_bot(bot, start):
@@ -17,7 +17,8 @@ def init_bot(bot, start):
             reply_markup = {}
             query = select(Account).where(Account.plan_id == int(plan_id))
             for account_model in session.scalars(query).all():
-                label = f'Membros: {len(account_model.signatures)} '
+                signatures_query = select(Signature).where(Signature.account_id == account_model.id).where(Signature.due_date >= get_today_date())
+                label = f'Membros: {len(session.scalars(signatures_query).all())} '
                 label += (
                     account_model.message
                     if len(account_model.message) < 50
@@ -129,7 +130,12 @@ def init_bot(bot, start):
         with Session() as session:
             account_model = session.get(Account, account_id)
             account_model.message = message.text
-            account_model.password = message.text
+            for signature_model in account_model.signatures:
+                if signature_model.user.chat_id:
+                    try:
+                        bot.send_message(signature_model.user.chat_id, f'🚨 Atenção, {signature_model.user.username} 🚨\n🔒 A senha do {signature_model.plan.name} foi alterada.\n👉 Acesse agora em "Minhas assinaturas" 💻')
+                    except:
+                        continue
             session.commit()
             bot.send_message(message.chat.id, 'Conta Alterada!')
             start(message)
