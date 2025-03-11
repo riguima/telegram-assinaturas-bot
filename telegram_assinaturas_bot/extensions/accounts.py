@@ -1,164 +1,159 @@
-from sqlalchemy import select
+from telebot.apihelper import ApiTelegramException
 from telebot.util import quick_markup
 
-from telegram_assinaturas_bot.database import Session
-from telegram_assinaturas_bot.models import Account, Signature
-from telegram_assinaturas_bot.utils import get_categories_reply_markup, get_today_date
+from telegram_assinaturas_bot import repository, utils
+from telegram_assinaturas_bot.callbacks_datas import actions_factory
+from telegram_assinaturas_bot.consts import MAX_OPTIONS_LENGTH
 
 
 def init_bot(bot, start):
     @bot.callback_query_handler(
-        func=lambda c: 'show_accounts_of_plan:' in c.data
+        config=actions_factory.filter(action='show_plan_accounts')
     )
-    def show_accounts_of_plan(callback_query):
-        plan_id, action = callback_query.data.split(':')[1:3]
-        args = callback_query.data.split(':')[3:]
-        with Session() as session:
-            reply_markup = {}
-            query = select(Account).where(Account.plan_id == int(plan_id))
-            for account_model in session.scalars(query).all():
-                signatures_query = select(Signature).where(Signature.account_id == account_model.id).where(Signature.due_date >= get_today_date())
-                label = f'Membros: {len(session.scalars(signatures_query).all())} '
-                label += (
-                    account_model.message
-                    if len(account_model.message) < 50
-                    else account_model.message[:40] + '...'
-                )
-                reply_markup[label] = {
-                    'callback_data': ':'.join(
-                        [action, *args, str(account_model.id)]
-                    ),
-                }
-            reply_markup['Voltar'] = {
-                'callback_data': 'return_to_categories_menu:show_accounts_of_plan'
-            }
-            bot.send_message(
-                callback_query.message.chat.id,
-                'Contas',
-                reply_markup=quick_markup(reply_markup, row_width=1),
+    def show_plan_accounts(callback_query):
+        data = actions_factory.parse(callback_query.data)
+        reply_markup = {}
+        for account in repository.get_plan_accounts(int(data['p'])):
+            active_signatures = repository.get_active_account_signatures(account.id)
+            label = f'Membros: {len(active_signatures)} '
+            label += (
+                account.message
+                if len(account.message) < MAX_OPTIONS_LENGTH
+                else account.message[: MAX_OPTIONS_LENGTH - 10] + '...'
             )
-
-    @bot.callback_query_handler(func=lambda c: c.data == 'add_account')
-    def add_account(callback_query):
+            reply_markup[label] = {
+                'callback_data': utils.create_actions_callback_data(
+                    action=data['argument'],
+                    p=data['plan_id'],
+                    s=data['signature_id'],
+                    a=account.id,
+                )
+            }
+        reply_markup['Voltar'] = {
+            'callback_data': utils.create_categories_callback_data(
+                label='Contas', action='show_plan_accounts'
+            )
+        }
         bot.send_message(
             callback_query.message.chat.id,
-            'Selecione um plano',
-            reply_markup=quick_markup(
-                get_categories_reply_markup('choose_account_plan'), row_width=1
-            ),
+            'Contas',
+            reply_markup=quick_markup(reply_markup, row_width=1),
         )
 
     @bot.callback_query_handler(
-        func=lambda c: 'choose_account_plan:' in c.data
+        config=actions_factory.filter(action='add_user_plan_menu')
     )
-    def choose_account_plan(callback_query):
-        plan_id = int(callback_query.data.split(':')[-1])
+    def add_user_plan_menu(callback_query):
+        data = actions_factory.parse(callback_query.data)
+        reply_markup = {}
+        for account in repository.get_plan_accounts(int(data['p'])):
+            active_signatures = repository.get_active_account_signatures(account.id)
+            label = f'Membros: {len(active_signatures)} '
+            label += (
+                account.message
+                if len(account.message) < MAX_OPTIONS_LENGTH
+                else account.message[: MAX_OPTIONS_LENGTH - 10] + '...'
+            )
+            reply_markup[label] = {
+                'callback_data': utils.create_actions_callback_data(
+                    action='add_user_plan',
+                    u=data['u'],
+                    a=account.id,
+                )
+            }
+        reply_markup['Voltar'] = {
+            'callback_data': utils.create_categories_callback_data(
+                label='Contas',
+                action='show_plan_accounts',
+            )
+        }
+        bot.send_message(
+            callback_query.message.chat.id,
+            'Contas',
+            reply_markup=quick_markup(reply_markup, row_width=1),
+        )
+
+    @bot.callback_query_handler(config=actions_factory.filter(action='show_account'))
+    def show_account(callback_query):
+        data = actions_factory.parse(callback_query.data)
+        account = repository.get_account(int(data['a']))
+        bot.send_message(
+            callback_query.message.chat.id,
+            account.message,
+            reply_markup=quick_markup(
+                {
+                    'Editar Mensagem': {
+                        'callback_data': utils.create_actions_callback_data(
+                            action='edit_account_message',
+                            a=account.id,
+                        )
+                    },
+                    'Remover Conta': {
+                        'callback_data': utils.create_actions_callback_data(
+                            action='delete_account',
+                            a=account.id,
+                        )
+                    },
+                    'Voltar': {'callback_data': 'show_main_menu'},
+                },
+                row_width=1,
+            ),
+        )
+
+    @bot.callback_query_handler(config=actions_factory.filter(action='create_account'))
+    def create_account(callback_query):
+        data = actions_factory.parse(callback_query.data)
         bot.send_message(
             callback_query.message.chat.id, 'Digite a mensagem para a conta'
         )
         bot.register_next_step_handler(
-            callback_query.message, lambda m: on_account_message(m, plan_id)
+            callback_query.message,
+            lambda m: on_account_message(m, int(data['p'])),
         )
 
     def on_account_message(message, plan_id):
-        with Session() as session:
-            account_model = Account(
-                plan_id=plan_id,
-                message=message.text,
-            )
-            session.add(account_model)
-            session.commit()
-            bot.send_message(message.chat.id, 'Conta Adicionada!')
-            start(message)
-
-    @bot.callback_query_handler(func=lambda c: c.data == 'show_accounts')
-    def show_accounts(callback_query):
-        bot.send_message(
-            callback_query.message.chat.id,
-            'Contas',
-            reply_markup=quick_markup(
-                get_categories_reply_markup(
-                    'show_accounts_of_plan', 'show_account'
-                ),
-                row_width=1,
-            ),
-        )
-
-    @bot.callback_query_handler(func=lambda c: 'show_account:' in c.data)
-    def show_account(callback_query):
-        account_id = int(callback_query.data.split(':')[-1])
-        with Session() as session:
-            account_model = session.get(Account, account_id)
-            bot.send_message(
-                callback_query.message.chat.id,
-                account_model.message,
-                reply_markup=quick_markup(
-                    {
-                        'Editar Mensagem': {
-                            'callback_data': f'edit_account_message:{account_model.id}'
-                        },
-                        'Remover Conta': {
-                            'callback_data': f'remove_account:{account_model.id}'
-                        },
-                        'Voltar': {'callback_data': 'return_to_main_menu'},
-                    },
-                    row_width=1,
-                ),
-            )
+        repository.create_account(plan_id, message.text)
+        bot.send_message(message.chat.id, 'Conta Adicionada!')
+        start(message)
 
     @bot.callback_query_handler(
-        func=lambda c: 'edit_account_message:' in c.data
+        config=actions_factory.filter(action='edit_account_message')
     )
     def edit_account_message(callback_query):
-        account_id = int(callback_query.data.split(':')[-1])
-        with Session() as session:
-            account_model = session.get(Account, account_id)
-            bot.send_message(callback_query.message.chat.id, 'Mensagem Atual:')
-            bot.send_message(
-                callback_query.message.chat.id, account_model.message
-            )
-            bot.send_message(
-                callback_query.message.chat.id,
-                'Digite a nova mensagem da conta',
-            )
-            bot.register_next_step_handler(
-                callback_query.message,
-                lambda m: on_edit_account_message(m, account_id),
-            )
-
-    def on_edit_account_message(message, account_id):
-        with Session() as session:
-            account_model = session.get(Account, account_id)
-            account_model.message = message.text
-            for signature_model in account_model.signatures:
-                if signature_model.user.chat_id:
-                    try:
-                        bot.send_message(signature_model.user.chat_id, f'🚨 Atenção, {signature_model.user.username} 🚨\n🔒 A senha do {signature_model.plan.name} foi alterada.\n👉 Acesse agora em "Minhas assinaturas" 💻')
-                    except:
-                        continue
-            session.commit()
-            bot.send_message(message.chat.id, 'Conta Alterada!')
-            start(message)
-
-    @bot.callback_query_handler(func=lambda c: c.data == 'remove_account')
-    def remove_account(callback_query):
+        data = actions_factory.parse(callback_query.data)
+        account = repository.get_account(int(data['a']))
+        bot.send_message(callback_query.message.chat.id, 'Mensagem Atual:')
+        bot.send_message(callback_query.message.chat.id, account.message)
         bot.send_message(
             callback_query.message.chat.id,
-            'Contas',
-            reply_markup=quick_markup(
-                get_categories_reply_markup(
-                    'show_accounts_of_plan', 'remove_account'
-                ),
-                row_width=1,
-            ),
+            'Digite a nova mensagem da conta',
+        )
+        bot.register_next_step_handler(
+            callback_query.message,
+            lambda m: on_edit_account_message(m, int(data['a'])),
         )
 
-    @bot.callback_query_handler(func=lambda c: 'remove_account:' in c.data)
-    def remove_account_action(callback_query):
-        account_id = int(callback_query.data.split(':')[-1])
-        with Session() as session:
-            account_model = session.get(Account, account_id)
-            session.delete(account_model)
-            session.commit()
-            bot.send_message(callback_query.message.chat.id, 'Conta Removida!')
-            start(callback_query.message)
+    def on_edit_account_message(message, account_id):
+        repository.edit_account_message(account_id, message.text)
+        for signature in repository.get_account_signatures(account_id):
+            if signature.user.chat_id:
+                try:
+                    bot.send_message(
+                        signature.user.chat_id,
+                        (
+                            f'🚨 Atenção, {signature.user.username} 🚨\n'
+                            f'🔒 A senha do {signature.plan.name} foi alterada.'
+                            '\n👉 Acesse agora em "Minhas assinaturas" 💻'
+                        ),
+                    )
+                except ApiTelegramException:
+                    continue
+        bot.send_message(message.chat.id, 'Conta Alterada!')
+        start(message)
+
+    @bot.callback_query_handler(config=actions_factory.filter(action='delete_account'))
+    def delete_account(callback_query):
+        data = actions_factory.parse(callback_query.data)
+        repository.delete_account(int(data['a']))
+        bot.send_message(callback_query.message.chat.id, 'Conta Removida!')
+        start(callback_query.message)

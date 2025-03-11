@@ -1,0 +1,63 @@
+from telebot.util import quick_markup
+
+from telegram_assinaturas_bot import repository, utils
+from telegram_assinaturas_bot.callbacks_datas import (
+    actions_factory,
+)
+from telegram_assinaturas_bot.consts import MAX_OPTIONS_LENGTH
+
+
+def init_bot(bot, start):
+    @bot.callback_query_handler(
+        config=actions_factory.filter(action='show_subscribers')
+    )
+    def show_subscribers(callback_query):
+        data = actions_factory.parse(callback_query.data)
+        reply_markup = {}
+        accounts = repository.get_plan_accounts(int(data['p']))
+        actives, _ = repository.get_active_signatures_count(accounts)
+        for account in accounts:
+            label = (
+                account.message
+                if len(account.message) < MAX_OPTIONS_LENGTH
+                else account.message[: MAX_OPTIONS_LENGTH - 10] + '...'
+            )
+            reply_markup[label] = utils.create_actions_callback_data(
+                action='show_account_subscribers',
+                a=account.id,
+            )
+        reply_markup['Voltar'] = utils.create_categories_callback_data(
+            label='Assinantes',
+            action='show_subscribers',
+        )
+        bot.send_message(
+            callback_query.message.chat.id,
+            f'Ativos: {actives}',
+            reply_markup=quick_markup(reply_markup, row_width=1),
+        )
+
+    @bot.callback_query_handler(
+        config=actions_factory.filter(action='show_account_subscribers')
+    )
+    def show_account_subscribers(callback_query):
+        data = actions_factory.parse(callback_query.data)
+        account = repository.get_account(int(data['a']))
+        actives = 0
+        users = ''
+        for signature_model in account.signatures:
+            if signature_model.due_date >= utils.get_today_date():
+                actives += 1
+                users += f'@{signature_model.user.username}\n'
+        bot.send_message(
+            callback_query.message.chat.id,
+            f'Ativos: {actives}\n\n{users}',
+            reply_markup=quick_markup(
+                {
+                    'Voltar': utils.create_categories_callback_data(
+                        label='Planos',
+                        action='show_subscribers',
+                    ),
+                },
+                row_width=1,
+            ),
+        )
