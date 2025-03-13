@@ -14,6 +14,7 @@ class Base(DeclarativeBase):
 class User(Base):
     __tablename__ = 'users'
     id: Mapped[int] = mapped_column(primary_key=True)
+    bot_username: Mapped[str]
     chat_id: Mapped[Optional[str]]
     username: Mapped[str]
     signatures: Mapped[List['Signature']] = relationship(
@@ -27,6 +28,7 @@ class User(Base):
 class Signature(Base):
     __tablename__ = 'signatures'
     id: Mapped[int] = mapped_column(primary_key=True)
+    bot_username: Mapped[str]
     user: Mapped['User'] = relationship(back_populates='signatures')
     user_id: Mapped[int] = mapped_column(ForeignKey('users.id'))
     plan: Mapped['Plan'] = relationship(back_populates='signatures')
@@ -43,6 +45,7 @@ class Signature(Base):
 class Account(Base):
     __tablename__ = 'accounts'
     id: Mapped[int] = mapped_column(primary_key=True)
+    bot_username: Mapped[str]
     plan: Mapped['Plan'] = relationship(back_populates='accounts')
     plan_id: Mapped[int] = mapped_column(ForeignKey('plans.id'))
     message: Mapped[str]
@@ -52,6 +55,7 @@ class Account(Base):
 class Plan(Base):
     __tablename__ = 'plans'
     id: Mapped[int] = mapped_column(primary_key=True)
+    bot_username: Mapped[str]
     name: Mapped[str]
     value: Mapped[float]
     days: Mapped[int]
@@ -68,6 +72,7 @@ class Plan(Base):
 class Category(Base):
     __tablename__ = 'categories'
     id: Mapped[int] = mapped_column(primary_key=True)
+    bot_username: Mapped[str]
     name: Mapped[str]
     parent_category_name: Mapped[Optional[str]] = mapped_column(default='Nenhuma')
     plans: Mapped[List['Plan']] = relationship(
@@ -78,6 +83,7 @@ class Category(Base):
 class Payment(Base):
     __tablename__ = 'payments'
     id: Mapped[int] = mapped_column(primary_key=True)
+    bot_username: Mapped[str]
     payment_id: Mapped[str]
     user: Mapped['User'] = relationship(back_populates='payments')
     user_id: Mapped[int] = mapped_column(ForeignKey('users.id'))
@@ -87,8 +93,16 @@ class Payment(Base):
 class Setting(Base):
     __tablename__ = 'settings'
     id: Mapped[int] = mapped_column(primary_key=True)
+    bot_username: Mapped[str]
     name: Mapped[str]
     value: Mapped[str]
+
+
+class Bot(Base):
+    __tablename__ = 'bots'
+    id: Mapped[int] = mapped_column(primary_key=True)
+    username: Mapped[str]
+    token: Mapped[str]
 
 
 Base.metadata.create_all(db)

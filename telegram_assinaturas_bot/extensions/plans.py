@@ -4,7 +4,7 @@ from telegram_assinaturas_bot import repository, utils
 from telegram_assinaturas_bot.callbacks_datas import actions_factory
 
 
-def init_bot(bot, start):
+def init_bot(bot, bot_username, start):
     @bot.callback_query_handler(config=actions_factory.filter(action='show_plan'))
     def show_plan(callback_query):
         data = actions_factory.parse(callback_query.data)
@@ -40,7 +40,7 @@ def init_bot(bot, start):
     @bot.callback_query_handler(func=lambda c: c.data == 'create_plan')
     def create_plan(callback_query):
         reply_markup = {}
-        for category in repository.get_categories():
+        for category in repository.get_categories(bot_username):
             reply_markup[f'🗂 {category.name}'] = {
                 'callback_data': utils.create_actions_callback_data(
                     action='choose_plan_category',
@@ -87,6 +87,7 @@ def init_bot(bot, start):
     def on_plan_days(message, plan_data):
         try:
             repository.create_plan(
+                bot_username=bot_username,
                 value=plan_data['value'],
                 name=plan_data['name'],
                 days=int(message.text),

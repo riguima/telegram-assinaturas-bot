@@ -14,11 +14,11 @@ from telegram_assinaturas_bot.callbacks_datas import (
 from telegram_assinaturas_bot.config import config
 
 
-def init_bot(bot, start):
+def init_bot(bot, bot_username, start):
     @bot.callback_query_handler(config=actions_factory.filter(action='show_signature'))
     def show_signature(callback_query):
         data = actions_factory.parse(callback_query.data)
-        user = repository.get_user_by_username(data['u'])
+        user = repository.get_user_by_username(bot_username, data['u'])
         signatures = repository.get_active_signatures(user.id)
         if signatures:
             send_signature_menu(callback_query.message, signatures)
@@ -79,9 +79,9 @@ def init_bot(bot, start):
     @bot.callback_query_handler(config=actions_factory.filter(action='sign'))
     def sign(callback_query):
         data = actions_factory.parse(callback_query.data)
-        checkout = repository.get_setting('Checkout')
+        gateway = repository.get_setting(bot_username, 'Gateway')
         plan = repository.get_plan(int(data['p']))
-        if checkout == 'Mercado Pago':
+        if gateway == 'Mercado Pago':
             qr_code, payment_id = get_mercadopago_qrcode(plan)
         else:
             qr_code, payment_id = get_asaas_qrcode(plan)
@@ -99,8 +99,11 @@ def init_bot(bot, start):
             open(Path(qr_code_filename).absolute(), 'rb'),
         )
         os.remove(Path(qr_code_filename).absolute())
-        user = repository.get_user_by_username(callback_query.message.chat.username)
+        user = repository.get_user_by_username(
+            bot_username, callback_query.message.chat.username
+        )
         repository.add_payment(
+            bot_username=bot_username,
             chat_id=callback_query.message.chat.id,
             user_id=user.id,
             payment_id=payment_id,
@@ -108,7 +111,7 @@ def init_bot(bot, start):
 
     def get_mercadopago_qrcode(plan, username):
         mercado_pago_sdk = mercadopago.SDK(
-            repository.get_setting('Mercado Pago Access Token')
+            repository.get_setting(bot_username, 'Access Token')
         )
         due_date = utils.get_today_date() + timedelta(days=plan.days)
         payment_data = {
@@ -131,7 +134,7 @@ def init_bot(bot, start):
 
     def get_asaas_qrcode(plan, username):
         mercado_pago_sdk = mercadopago.SDK(
-            repository.get_setting('Mercado Pago Access Token')
+            repository.get_setting(bot_username, 'Access Token')
         )
         due_date = utils.get_today_date() + timedelta(days=plan.days)
         payment_data = {
@@ -152,7 +155,9 @@ def init_bot(bot, start):
         response = mercado_pago_sdk.payment().create(payment_data)['response']
         return response['point_of_interaction']['transaction_data']['qr_code']
 
-    @bot.callback_query_handler(config=actions_factory.filter('cancel_signature'))
+    @bot.callback_query_handler(
+        config=actions_factory.filter(action='cancel_signature')
+    )
     def cancel_signature(callback_query):
         data = actions_factory.parse(callback_query.data)
         repository.delete_signature(int(data['s']))

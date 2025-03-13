@@ -7,7 +7,7 @@ from telegram_assinaturas_bot.callbacks_datas import (
 from telegram_assinaturas_bot.consts import MAX_OPTIONS_LENGTH
 
 
-def init_bot(bot, start):
+def init_bot(bot, bot_username, start):
     @bot.callback_query_handler(
         config=actions_factory.filter(action='show_subscribers')
     )
@@ -15,7 +15,7 @@ def init_bot(bot, start):
         data = actions_factory.parse(callback_query.data)
         reply_markup = {}
         accounts = repository.get_plan_accounts(int(data['p']))
-        actives, _ = repository.get_active_signatures_count(accounts)
+        actives = len(repository.get_active_plan_signatures(int(data['p'])))
         for account in accounts:
             label = (
                 account.message
@@ -41,13 +41,11 @@ def init_bot(bot, start):
     )
     def show_account_subscribers(callback_query):
         data = actions_factory.parse(callback_query.data)
-        account = repository.get_account(int(data['a']))
         actives = 0
         users = ''
-        for signature_model in account.signatures:
-            if signature_model.due_date >= utils.get_today_date():
-                actives += 1
-                users += f'@{signature_model.user.username}\n'
+        for signature in repository.get_active_account_signatures(int(data['a'])):
+            actives += 1
+            users += f'@{signature.user.username}\n'
         bot.send_message(
             callback_query.message.chat.id,
             f'Ativos: {actives}\n\n{users}',

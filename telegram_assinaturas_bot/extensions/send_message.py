@@ -7,7 +7,7 @@ from telegram_assinaturas_bot.callbacks_datas import (
 )
 
 
-def init_bot(bot, start):
+def init_bot(bot, bot_username, start):
     @bot.callback_query_handler(func=lambda c: c.data == 'send_message')
     def send_message(callback_query):
         bot.send_message(
@@ -55,10 +55,12 @@ def init_bot(bot, start):
         if message.text == '/stop':
             sending_message = bot.send_message(message.chat.id, 'Enviando Mensagens...')
             users = {
-                'all_users': repository.get_users,
-                'subscribers': repository.get_subscribers,
+                'all_users': lambda: repository.get_users(bot_username),
+                'subscribers': lambda: repository.get_subscribers(bot_username),
                 'plan_users': lambda: repository.get_plan_users(int(plan_id)),
-                'user': lambda: list(repository.get_user_by_username(username)),
+                'user': lambda: list(
+                    repository.get_user_by_username(bot_username, username)
+                ),
             }
             for user in users[argument]():
                 try:
