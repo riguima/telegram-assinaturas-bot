@@ -35,7 +35,7 @@ def init_bot(bot, bot_username, start):
     @bot.callback_query_handler(
         config=actions_factory.filter(action='configure_gateway')
     )
-    def mercado_pago_gateway(callback_query):
+    def configure_gateway(callback_query):
         data = actions_factory.parse(callback_query.data)
         bot.send_message(
             callback_query.message.chat.id,
@@ -52,13 +52,13 @@ def init_bot(bot, bot_username, start):
         bot.send_message(
             callback_query.message.chat.id,
             (
-                'copie essa url para o campo de url do webhook: '
+                'Copie essa url para o campo de url do webhook: '
                 f'{config["WEBHOOK_HOST"]}/{data["e"]}/webhook/{callback_query.message.chat.username}'
             ),
         )
         bot.send_message(
             callback_query.message.chat.id,
-            'Digite o Access Token para concluir a configuração',
+            'Digite o Token/Chave de API para concluir a configuração',
         )
         bot.register_next_step_handler(
             callback_query.message, lambda m: on_access_token(m, data['e'])
@@ -83,7 +83,14 @@ def init_bot(bot, bot_username, start):
                 ),
             )
         else:
-            pass
+            bot.send_message(
+                message.chat.id,
+                (
+                    'Dentro do Asaas, vai no menu no canto superior direito e selecione'
+                    ' "Integrações", adicione um webhook e deixe como no exemplo '
+                    'abaixo:'
+                ),
+            )
 
     def on_access_token(message, gateway):
         repository.set_setting(bot_username, 'Gateway', gateway)

@@ -19,7 +19,10 @@ def init_bot(bot, bot_username):
     def start(message):
         if message.chat.username:
             repository.create_update_user(
-                bot_username, message.chat.username, str(message.chat.id)
+                bot_username=bot_username,
+                username=message.chat.username,
+                name=message.chat.first_name,
+                chat_id=str(message.chat.id)
             )
             bot.send_message(
                 message.chat.id,
@@ -102,12 +105,12 @@ def init_bot(bot, bot_username):
     def show_main_menu(callback_query):
         start(callback_query.message)
 
-    def load_extensions(bot):
+    def load_extensions():
         for extension in config['EXTENSIONS']:
             extension_module = import_module(extension)
             extension_module.init_bot(bot, bot_username, start)
 
-    load_extensions(bot, bot_username)
+    load_extensions()
     bot.add_custom_filter(CallbackFilter())
     bot.remove_webhook()
     bot.set_webhook(url=f'{config["WEBHOOK_HOST"]}/update/{bot_username}')

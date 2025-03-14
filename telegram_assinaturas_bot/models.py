@@ -16,6 +16,9 @@ class User(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     bot_username: Mapped[str]
     chat_id: Mapped[Optional[str]]
+    cpf_cnpj: Mapped[Optional[str]]
+    name: Mapped[Optional[str]]
+    email: Mapped[Optional[str]]
     username: Mapped[str]
     signatures: Mapped[List['Signature']] = relationship(
         back_populates='user', cascade='all,delete-orphan'
@@ -88,6 +91,7 @@ class Payment(Base):
     user: Mapped['User'] = relationship(back_populates='payments')
     user_id: Mapped[int] = mapped_column(ForeignKey('users.id'))
     chat_id: Mapped[str]
+    gateway: Mapped[str]
 
 
 class Setting(Base):

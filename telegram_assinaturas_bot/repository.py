@@ -32,7 +32,7 @@ def create_user(bot_username, username):
         session.commit()
 
 
-def create_update_user(bot_username, username, chat_id):
+def create_update_user(bot_username, username, name, chat_id):
     with Session() as session:
         query = select(models.User).where(
             models.User.bot_username == bot_username & models.User.username == username
@@ -42,12 +42,14 @@ def create_update_user(bot_username, username, chat_id):
             user_model = models.User(
                 bot_username=bot_username,
                 username=username,
+                name=name,
                 chat_id=chat_id,
             )
             session.add(user_model)
             session.commit()
-        elif user_model.chat_id is None:
+        else:
             user_model.chat_id = chat_id
+            user_model.name = name
             session.commit()
 
 
@@ -57,6 +59,20 @@ def get_user_by_username(bot_username, username):
             models.User.bot_username == bot_username & models.User.username == username
         )
         return session.scalars(query).first()
+
+
+def edit_user_cpf_cnpj(user_id, cpf_cnpj):
+    with Session() as session:
+        user = session.get(models.User, user_id)
+        user.cpf_cnpj = cpf_cnpj
+        session.commit()
+
+
+def edit_user_email(user_id, email):
+    with Session() as session:
+        user = session.get(models.User, user_id)
+        user.email = email
+        session.commit()
 
 
 def delete_user_by_username(bot_username, username):
@@ -366,13 +382,14 @@ def edit_plan_value(plan_id, value):
         session.commit()
 
 
-def create_payment(bot_username, chat_id, user_id, payment_id):
+def create_payment(bot_username, chat_id, user_id, payment_id, gateway):
     with Session() as session:
         payment = models.Payment(
             bot_username=bot_username,
             chat_id=chat_id,
             user_id=user_id,
             payment_id=payment_id,
+            gateway=gateway,
         )
         session.add(payment)
         session.commit()
@@ -394,7 +411,7 @@ def get_subscribers(bot_username):
 
 def get_bots():
     with Session() as session:
-        return session.scalars(select(models.Bot)).first()
+        return session.scalars(select(models.Bot)).all()
 
 
 def get_bot_by_username(username):
@@ -403,7 +420,7 @@ def get_bot_by_username(username):
         return session.scalars(query).first()
 
 
-def add_bot(username, token):
+def create_bot(username, token):
     with Session() as session:
         bot = models.Bot(
             username=username,

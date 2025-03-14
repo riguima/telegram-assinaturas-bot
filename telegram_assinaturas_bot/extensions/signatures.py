@@ -2,6 +2,7 @@ import os
 from datetime import timedelta
 from pathlib import Path
 from uuid import uuid4
+from httpx import post, get
 
 import mercadopago
 import qrcode
@@ -12,6 +13,7 @@ from telegram_assinaturas_bot.callbacks_datas import (
     actions_factory,
 )
 from telegram_assinaturas_bot.config import config
+from telegram_assinaturas_bot.utils import get_today_date
 
 
 def init_bot(bot, bot_username, start):
@@ -30,7 +32,7 @@ def init_bot(bot, bot_username, start):
                     {
                         'Comprar acesso': utils.create_categories_callback_data(
                             label='Escolha o plano',
-                            action='sign',
+                            action='ask_cpf_cnpj',
                         ),
                         'Voltar': {'callback_data': 'show_main_menu'},
                     },
@@ -76,40 +78,64 @@ def init_bot(bot, bot_username, start):
             }),
         )
 
-    @bot.callback_query_handler(config=actions_factory.filter(action='sign'))
-    def sign(callback_query):
+    @bot.callback_query_handler(config=actions_factory.filter(action='ask_cpf_cnpj'))
+    def ask_cpf_cnpj(callback_query):
         data = actions_factory.parse(callback_query.data)
-        gateway = repository.get_setting(bot_username, 'Gateway')
-        plan = repository.get_plan(int(data['p']))
-        if gateway == 'Mercado Pago':
-            qr_code, payment_id = get_mercadopago_qrcode(plan)
+        user = repository.get_user_by_username(
+            bot_username,
+            callback_query.message.chat.username,
+        )
+        if user.cpf_cnpj is None:
+            bot.send_message(callback_query.message.chat.id, 'Digite seu CPF/CNPJ')
+            bot.register_next_step_handler(
+                callback_query.message,
+                lambda m: on_cpf_cnpj(m, user.id, int(data['p'])),
+            )
         else:
-            qr_code, payment_id = get_asaas_qrcode(plan)
+            sign(callback_query.message, int(data['p']))
+
+    def on_cpf_cnpj(message, user_id, plan_id):
+        repository.edit_user_cpf_cnpj(user_id, message.text)
+        bot.send_message('Digite o seu Email')
+        bot.register_next_step_handler(
+            message, lambda m: on_email(m, user_id, plan_id)
+        )
+
+    def on_email(message, user_id, plan_id):
+        repository.edit_user_email(user_id, message.text)
+        sign(message, plan_id)
+
+    def sign(message, plan_id):
+        user = repository.get_user_by_username(bot_username, message.chat.username)
+        gateway = repository.get_setting(bot_username, 'Gateway')
+        plan = repository.get_plan(plan_id)
+        if gateway == 'Mercado Pago':
+            qr_code, payment_id = get_mercadopago_qrcode(user, plan)
+        else:
+            qr_code, payment_id = get_asaas_qrcode(user, plan)
         bot.send_message(
-            callback_query.message.chat.id,
+            message.chat.id,
             'Realize o pagamento para ativar o plano',
         )
-        bot.send_message(callback_query.message.chat.id, 'Chave Pix abaixo:')
-        bot.send_message(callback_query.message.chat.id, qr_code)
+        bot.send_message(message.chat.id, 'Chave Pix abaixo:')
+        bot.send_message(message.chat.id, qr_code)
         qr_code = qrcode.make(qr_code)
         qr_code_filename = f'{uuid4()}.png'
         qr_code.save(qr_code_filename)
         bot.send_photo(
-            callback_query.message.chat.id,
+            message.chat.id,
             open(Path(qr_code_filename).absolute(), 'rb'),
         )
         os.remove(Path(qr_code_filename).absolute())
-        user = repository.get_user_by_username(
-            bot_username, callback_query.message.chat.username
-        )
-        repository.add_payment(
+        repository.create_payment(
             bot_username=bot_username,
-            chat_id=callback_query.message.chat.id,
+            chat_id=message.chat.id,
             user_id=user.id,
             payment_id=payment_id,
+            gateway=gateway,
         )
 
-    def get_mercadopago_qrcode(plan, username):
+    def get_mercadopago_qrcode(user, plan):
         mercado_pago_sdk = mercadopago.SDK(
             repository.get_setting(bot_username, 'Access Token')
         )
@@ -121,39 +147,49 @@ def init_bot(bot, bot_username, start):
                 f' - {plan.days} Dias'
                 f' - R${plan.value:.2f}'
                 f' - Vencimento: {(due_date):%d/%m/%Y}'
-                f' - {username}'
+                f' - {user.username}'
             ),
             'payment_method_id': 'pix',
             'installments': 1,
             'payer': {
-                'email': config['PAYER_EMAIL'],
+                'email': user.email,
             },
         }
         response = mercado_pago_sdk.payment().create(payment_data)['response']
-        return response['point_of_interaction']['transaction_data']['qr_code']
-
-    def get_asaas_qrcode(plan, username):
-        mercado_pago_sdk = mercadopago.SDK(
-            repository.get_setting(bot_username, 'Access Token')
+        return (
+            response['point_of_interaction']['transaction_data']['qr_code'],
+            response['id'],
         )
+
+    def get_asaas_qrcode(user, plan):
         due_date = utils.get_today_date() + timedelta(days=plan.days)
+        customer_response = get(f'{config["ASAAS_API_HOST"]}/v3/customers', params={
+            'cpfCnpj': user.cpf_cnpj,
+        }).json()
+        breakpoint()
         payment_data = {
-            'transaction_amount': plan.value,
+            'customer': customer_response['id'],
+            'dueDate': get_today_date().strftime('%Y-%m-%d'),
+            'billingType': 'PIX',
+            'value': plan.value,
             'description': (
                 f'{plan.name}'
                 f' - {plan.days} Dias'
                 f' - R${plan.value:.2f}'
                 f' - Vencimento: {(due_date):%d/%m/%Y}'
-                f' - {username}'
+                f' - {user.username}'
             ),
-            'payment_method_id': 'pix',
-            'installments': 1,
-            'payer': {
-                'email': config['PAYER_EMAIL'],
-            },
         }
-        response = mercado_pago_sdk.payment().create(payment_data)['response']
-        return response['point_of_interaction']['transaction_data']['qr_code']
+        payment_response = post(f'{config["ASAAS_API_HOST"]}/v3/payments', json=payment_data, headers={
+            'access_token': repository.get_setting(bot_username, 'Access Token'),
+        }).json()
+        qr_code_response = get(
+            f'{config["ASAAS_API_HOST"]}/v3/payments/{payment_response["pixQrCodeId"]}/pixQrCode',
+        ).json()
+        return (
+            qr_code_response['payload'],
+            payment_response['id'],
+        )
 
     @bot.callback_query_handler(
         config=actions_factory.filter(action='cancel_signature')

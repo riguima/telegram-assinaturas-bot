@@ -15,7 +15,10 @@ def init_bot(bot, bot_username, start):
         bot.register_next_step_handler(callback_query.message, on_username)
 
     def on_username(message):
-        repository.create_user(bot_username, message.text)
+        repository.create_user(
+            bot_username=bot_username,
+            username=message.text,
+        )
         bot.send_message(message.chat.id, 'Membro Adicionado!')
         start(message)
 
