@@ -2,10 +2,10 @@ import os
 from datetime import timedelta
 from pathlib import Path
 from uuid import uuid4
-from httpx import post, get
 
 import mercadopago
 import qrcode
+from httpx import get, post
 from telebot.util import quick_markup
 
 from telegram_assinaturas_bot import repository, utils

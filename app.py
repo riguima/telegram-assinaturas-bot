@@ -1,5 +1,4 @@
 from http import HTTPStatus
-import uvicorn
 
 import telebot
 from fastapi import FastAPI, Request
