@@ -14,7 +14,7 @@ class CallbackFilter(AdvancedCustomFilter):
         return config.check(query=call)
 
 
-def init_bot(bot, bot_username):
+def init_bot(bot, bot_username, bot_token):
     @bot.message_handler(commands=['start', 'help', 'menu'])
     def start(message):
         if message.chat.username:
@@ -22,7 +22,7 @@ def init_bot(bot, bot_username):
                 bot_username=bot_username,
                 username=message.chat.username,
                 name=message.chat.first_name,
-                chat_id=str(message.chat.id)
+                chat_id=str(message.chat.id),
             )
             bot.send_message(
                 message.chat.id,
@@ -47,7 +47,7 @@ def init_bot(bot, bot_username):
                 )
             },
         }
-        if message.chat.id in config['ADMINS']:
+        if message.chat.username in bot_username:
             options['Gateway de Pagamento'] = {
                 'callback_data': 'change_payment_gateway'
             }
@@ -113,4 +113,4 @@ def init_bot(bot, bot_username):
     load_extensions()
     bot.add_custom_filter(CallbackFilter())
     bot.remove_webhook()
-    bot.set_webhook(url=f'{config["WEBHOOK_HOST"]}/update/{bot_username}')
+    bot.set_webhook(url=f'{config["WEBHOOK_HOST"]}/{bot_token}/')

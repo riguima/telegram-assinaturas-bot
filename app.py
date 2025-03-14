@@ -1,4 +1,5 @@
 from http import HTTPStatus
+import uvicorn
 
 import telebot
 from fastapi import FastAPI, Request
@@ -12,32 +13,31 @@ bots = {}
 
 
 def create_bot(bot):
-    bots[bot.username] = telebot.TeleBot(bot.token)
-    init_bot(bots[bot.username], bot.username)
+    bots[bot.token] = telebot.TeleBot(bot.token, threaded=False)
+    init_bot(bots[bot.token], bot.username, bot.token)
 
 
 for bot in repository.get_bots():
     create_bot(bot)
 
 
-@app.post('/update/{username}', status_code=HTTPStatus.OK)
-def update(username: str, request: Request):
-    if bots.get(username) is None:
-        create_bot(repository.get_bot_by_username(username))
-    bot = bots[username]
-    data = request.json()
-    update = telebot.types.Update.de_json(data)
-    bot.process_new_updates([update])
-    return {'status': 'ok'}
+@app.post('/{token}/')
+async def update(token: str, update: dict):
+    if bots.get(token) is None:
+        create_bot(repository.get_bot_by_token(token))
+    bot = bots[token]
+    if update:
+        update = telebot.types.Update.de_json(update)
+        bot.process_new_updates([update])
 
 
 @app.post('/webhook/asaas', status_code=HTTPStatus.OK)
-def webhook_asaas(request: Request):
+async def webhook_asaas(request: Request):
     print(request.json())
     return {'status': 'ok'}
 
 
 @app.post('/webhook/mercado-pago', status_code=HTTPStatus.OK)
-def webhook_mercado_pago(request: Request):
+async def webhook_mercado_pago(request: Request):
     print(request.json())
     return {'status': 'ok'}

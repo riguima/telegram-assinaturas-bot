@@ -20,7 +20,7 @@ def get_users(bot_username):
 def search_users(bot_username, search):
     with Session() as session:
         query = select(models.User).where(
-            models.User.bot_username & models.User.username.ilike(f'%{search}%')
+            models.User.bot_username, models.User.username.ilike(f'%{search}%')
         )
         return session.scalars(query).all()
 
@@ -35,7 +35,7 @@ def create_user(bot_username, username):
 def create_update_user(bot_username, username, name, chat_id):
     with Session() as session:
         query = select(models.User).where(
-            models.User.bot_username == bot_username & models.User.username == username
+            models.User.bot_username == bot_username, models.User.username == username
         )
         user_model = session.scalars(query).first()
         if user_model is None:
@@ -56,7 +56,7 @@ def create_update_user(bot_username, username, name, chat_id):
 def get_user_by_username(bot_username, username):
     with Session() as session:
         query = select(models.User).where(
-            models.User.bot_username == bot_username & models.User.username == username
+            models.User.bot_username == bot_username, models.User.username == username
         )
         return session.scalars(query).first()
 
@@ -78,7 +78,7 @@ def edit_user_email(user_id, email):
 def delete_user_by_username(bot_username, username):
     with Session() as session:
         query = select(models.User).where(
-            models.User.bot_username == bot_username & models.User.username == username
+            models.User.bot_username == bot_username, models.User.username == username
         )
         user = session.scalars(query).first()
         session.delete(user)
@@ -88,9 +88,8 @@ def delete_user_by_username(bot_username, username):
 def get_active_signatures(user_id):
     with Session() as session:
         query = select(models.Signature).where(
-            models.Signature.user_id
-            == user_id & models.Signature.due_date
-            >= get_today_date()
+            models.Signature.user_id == user_id,
+            models.Signature.due_date >= get_today_date(),
         )
         return session.scalars(query).all()
 
@@ -98,10 +97,9 @@ def get_active_signatures(user_id):
 def get_active_plan_user_signatures(user_id, plan_id):
     with Session() as session:
         query = select(models.Signature).where(
-            models.Signature.user_id
-            == user_id & models.Signature.plan_id
-            == plan_id & models.Signature.due_date
-            >= get_today_date()
+            models.Signature.user_id == user_id,
+            models.Signature.plan_id == plan_id,
+            models.Signature.due_date >= get_today_date(),
         )
         return session.scalars(query).all()
 
@@ -109,9 +107,8 @@ def get_active_plan_user_signatures(user_id, plan_id):
 def get_active_account_signatures(account_id):
     with Session() as session:
         query = select(models.Signature).where(
-            models.Signature.account_id
-            == account_id & models.Signature.due_date
-            >= get_today_date()
+            models.Signature.account_id == account_id,
+            models.Signature.due_date >= get_today_date(),
         )
         return session.scalars(query).all()
 
@@ -119,9 +116,8 @@ def get_active_account_signatures(account_id):
 def get_active_plan_signatures(plan_id):
     with Session() as session:
         query = select(models.Signature).where(
-            models.Signature.plan_id
-            == plan_id & models.Signature.due_date
-            >= get_today_date()
+            models.Signature.plan_id == plan_id,
+            models.Signature.due_date >= get_today_date(),
         )
         return session.scalars(query).all()
 
@@ -227,9 +223,8 @@ def get_categories(bot_username):
 def get_main_categories(bot_username):
     with Session() as session:
         query = select(models.Category).where(
-            models.Category.bot_username
-            == bot_username & models.Category.parent_category_name
-            == 'Nenhuma'
+            models.Category.bot_username == bot_username,
+            models.Category.parent_category_name == 'Nenhuma',
         )
         return session.scalars(query).all()
 
@@ -254,9 +249,8 @@ def get_subcategories(bot_username, parent_category_id):
     with Session() as session:
         category = session.get(models.Category, parent_category_id)
         query = select(models.Category).where(
-            models.Category.bot_username
-            == bot_username & models.Category.parent_category_name
-            == category.name
+            models.Category.bot_username == bot_username,
+            models.Category.parent_category_name == category.name,
         )
         return session.scalars(query).all()
 
@@ -283,10 +277,9 @@ def get_categories_except(bot_username, category_id):
     with Session() as session:
         category = session.get(models.Category, category_id)
         query = select(models.Category).where(
-            models.Category.bot_username
-            == bot_username & models.Category.name
-            != category.parent_category_name & models.Category.name
-            != category.name
+            models.Category.bot_username == bot_username,
+            models.Category.name != category.parent_category_name,
+            models.Category.name != category.name,
         )
         return session.scalars(query).all()
 
@@ -306,7 +299,7 @@ def delete_category(category_id):
 def get_setting(bot_username, name, default=''):
     with Session() as session:
         query = select(models.Setting).where(
-            models.Setting.bot_username == bot_username & models.Setting.name == name
+            models.Setting.bot_username == bot_username, models.Setting.name == name
         )
         setting = session.scalars(query).first()
         return default if setting is None else setting.value
@@ -315,7 +308,7 @@ def get_setting(bot_username, name, default=''):
 def set_setting(bot_username, name, value):
     with Session() as session:
         query = select(models.Setting).where(
-            models.Setting.bot_username == bot_username & models.Setting.name == name
+            models.Setting.bot_username == bot_username, models.Setting.name == name
         )
         setting = session.scalars(query).first()
         if setting:
@@ -401,9 +394,8 @@ def get_subscribers(bot_username):
             select(models.User)
             .join(models.Signature)
             .where(
-                models.Signature.bot_username
-                == bot_username & models.Signature.due_date
-                >= get_today_date()
+                models.Signature.bot_username == bot_username,
+                models.Signature.due_date >= get_today_date(),
             )
         )
         return session.scalars(query).all()
@@ -414,9 +406,9 @@ def get_bots():
         return session.scalars(select(models.Bot)).all()
 
 
-def get_bot_by_username(username):
+def get_bot_by_token(token):
     with Session() as session:
-        query = select(models.Bot).where(models.Bot.username == username)
+        query = select(models.Bot).where(models.Bot.token == token)
         return session.scalars(query).first()
 
 

@@ -54,14 +54,15 @@ def init_bot(bot, bot_username, start):
                     category_id=category.id,
                 ),
             }
-        for plan in repository.get_plans_with_category(int(data['category_id'])):
-            reply_markup[utils.get_plan_text(plan)] = {
-                'callback_data': utils.create_actions_callback_data(
-                    action=data['action'],
-                    e=data['argument'],
-                    p=plan.id,
-                ),
-            }
+        if data['category_id']:
+            for plan in repository.get_plans_with_category(int(data['category_id'])):
+                reply_markup[utils.get_plan_text(plan)] = {
+                    'callback_data': utils.create_actions_callback_data(
+                        action=data['action'],
+                        e=data['argument'],
+                        p=plan.id,
+                    ),
+                }
         reply_markup['Voltar'] = {'callback_data': 'show_main_menu'}
         if data['label'] == 'subscribers':
             label = get_subscribers_label()
@@ -69,7 +70,7 @@ def init_bot(bot, bot_username, start):
             label = data['label']
         bot.send_message(
             callback_query.message.chat.id,
-            label,
+            label or 'Escolha uma opção',
             reply_markup=quick_markup(
                 reply_markup,
                 row_width=1,

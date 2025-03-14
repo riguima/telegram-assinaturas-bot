@@ -122,7 +122,7 @@ def init_bot(bot, bot_username, start):
         }
         reply_markup['Remover Membro'] = {
             'callback_data': utils.create_actions_callback_data(
-                action='remove_user',
+                action='delete_user',
                 u=user.username,
             )
         }

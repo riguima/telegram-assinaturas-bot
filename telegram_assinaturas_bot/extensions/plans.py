@@ -27,7 +27,7 @@ def init_bot(bot, bot_username, start):
                     },
                     'Remover Plano': {
                         'callback_data': utils.create_actions_callback_data(
-                            action='remove_plan',
+                            action='delete_plan',
                             p=data['p'],
                         ),
                     },
@@ -147,9 +147,9 @@ def init_bot(bot, bot_username, start):
         bot.send_message(message.chat.id, 'Mensagem Editada!')
         start(message)
 
-    @bot.callback_query_handler(config=actions_factory.filter(action='remove_plan'))
+    @bot.callback_query_handler(config=actions_factory.filter(action='delete_plan'))
     def delete_plan(callback_query):
         data = actions_factory.parse(callback_query.data)
-        repository.remove_plan(int(data['p']))
+        repository.delete_plan(int(data['p']))
         bot.send_message(callback_query.message.chat.id, 'Plano Removido!')
         start(callback_query.message)

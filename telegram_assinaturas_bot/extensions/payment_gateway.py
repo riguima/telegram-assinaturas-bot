@@ -53,7 +53,7 @@ def init_bot(bot, bot_username, start):
             callback_query.message.chat.id,
             (
                 'Copie essa url para o campo de url do webhook: '
-                f'{config["WEBHOOK_HOST"]}/{data["e"]}/webhook/{callback_query.message.chat.username}'
+                f'{config["WEBHOOK_HOST"]}/webhook/{data["e"]}'
             ),
         )
         bot.send_message(

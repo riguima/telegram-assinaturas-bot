@@ -30,10 +30,12 @@ def init_bot(bot, bot_username, start):
                 'Você não possui uma assinatura ativa',
                 reply_markup=quick_markup(
                     {
-                        'Comprar acesso': utils.create_categories_callback_data(
-                            label='Escolha o plano',
-                            action='ask_cpf_cnpj',
-                        ),
+                        'Comprar acesso': {
+                            'callback_data': utils.create_categories_callback_data(
+                                label='Escolha o plano',
+                                action='ask_cpf_cnpj',
+                            ),
+                        },
                         'Voltar': {'callback_data': 'show_main_menu'},
                     },
                     row_width=1,
@@ -96,10 +98,8 @@ def init_bot(bot, bot_username, start):
 
     def on_cpf_cnpj(message, user_id, plan_id):
         repository.edit_user_cpf_cnpj(user_id, message.text)
-        bot.send_message('Digite o seu Email')
-        bot.register_next_step_handler(
-            message, lambda m: on_email(m, user_id, plan_id)
-        )
+        bot.send_message(message.chat.id, 'Digite o seu Email')
+        bot.register_next_step_handler(message, lambda m: on_email(m, user_id, plan_id))
 
     def on_email(message, user_id, plan_id):
         repository.edit_user_email(user_id, message.text)
@@ -162,11 +162,29 @@ def init_bot(bot, bot_username, start):
         )
 
     def get_asaas_qrcode(user, plan):
+        access_token = repository.get_setting(bot_username, 'Access Token')
         due_date = utils.get_today_date() + timedelta(days=plan.days)
-        customer_response = get(f'{config["ASAAS_API_HOST"]}/v3/customers', params={
-            'cpfCnpj': user.cpf_cnpj,
-        }).json()
-        breakpoint()
+        customer_response = get(
+            f'{config["ASAAS_API_HOST"]}/v3/customers',
+            params={
+                'cpfCnpj': user.cpf_cnpj,
+            },
+            headers={
+                'access_token': access_token,
+            },
+        ).json()
+        if customer_response['data']:
+            customer_response = customer_response['data'][0]
+        else:
+            customer_response = post(
+                f'{config["ASAAS_API_HOST"]}/v3/customers',
+                json={
+                    'name': user.name,
+                    'cpfCnpj': user.cpf_cnpj,
+                    'email': user.email,
+                },
+                headers={'access_token': access_token},
+            ).json()
         payment_data = {
             'customer': customer_response['id'],
             'dueDate': get_today_date().strftime('%Y-%m-%d'),
@@ -180,11 +198,14 @@ def init_bot(bot, bot_username, start):
                 f' - {user.username}'
             ),
         }
-        payment_response = post(f'{config["ASAAS_API_HOST"]}/v3/payments', json=payment_data, headers={
-            'access_token': repository.get_setting(bot_username, 'Access Token'),
-        }).json()
+        payment_response = post(
+            f'{config["ASAAS_API_HOST"]}/v3/payments',
+            json=payment_data,
+            headers={'access_token': access_token},
+        ).json()
         qr_code_response = get(
-            f'{config["ASAAS_API_HOST"]}/v3/payments/{payment_response["pixQrCodeId"]}/pixQrCode',
+            f'{config["ASAAS_API_HOST"]}/v3/payments/{payment_response["id"]}/pixQrCode',
+            headers={'access_token': access_token},
         ).json()
         return (
             qr_code_response['payload'],
