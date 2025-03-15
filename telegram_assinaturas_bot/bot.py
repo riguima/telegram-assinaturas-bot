@@ -34,7 +34,10 @@ def init_bot(bot, bot_token):
                     'Mensagem Menu',
                     default='Altere a mensagem do menu para ser mostrada aqui',
                 ),
-                reply_markup=quick_markup(get_menu_options(message, is_admin), row_width=1),
+                reply_markup=quick_markup(
+                    get_menu_options(message, is_admin),
+                    row_width=1
+                ),
             )
         else:
             bot.send_message(
@@ -51,26 +54,9 @@ def init_bot(bot, bot_token):
                 )
             }
         if is_admin:
-            admin_options = {
+            default_options = {
                 'Enviar Mensagem': {'callback_data': 'send_message'},
                 'Editar Mensagem do Menu': {'callback_data': 'edit_menu_message'},
-                'Adicionar Categoria': {'callback_data': 'create_category'},
-                'Categorias': {'callback_data': 'show_categories'},
-                'Assinantes': {
-                    'callback_data': utils.create_categories_callback_data(
-                        label='subscribers',
-                        action='show_subscribers',
-                        argument='',
-                    )
-                },
-                'Adicionar Plano': {'callback_data': 'create_plan'},
-                'Planos': {
-                    'callback_data': utils.create_categories_callback_data(
-                        label='Planos',
-                        action='show_plan',
-                        argument='',
-                    )
-                },
                 'Adicionar Membro': {'callback_data': 'create_user'},
                 'Membros': {'callback_data': 'show_users'},
             }
@@ -80,7 +66,7 @@ def init_bot(bot, bot_token):
                 }
                 user_bot = repository.get_bot_by_token(bot_token)
                 if user_bot.username == message.chat.username:
-                    options.update(admin_options)
+                    options.update(default_options)
             else:
                 options['Gateway de Pagamento'] = {
                     'callback_data': 'change_payment_gateway'
@@ -99,7 +85,24 @@ def init_bot(bot, bot_token):
                         argument='show_account',
                     )
                 }
-                options.update(admin_options)
+                options['Adicionar Categoria'] = {'callback_data': 'create_category'}
+                options['Categorias'] = {'callback_data': 'show_categories'}
+                options['Assinantes'] = {
+                    'callback_data': utils.create_categories_callback_data(
+                        label='subscribers',
+                        action='show_subscribers',
+                        argument='',
+                    )
+                }
+                options['Adicionar Plano'] = {'callback_data': 'create_plan'}
+                options['Planos'] = {
+                    'callback_data': utils.create_categories_callback_data(
+                        label='Planos',
+                        action='show_plan',
+                        argument='',
+                    )
+                }
+                options.update(default_options)
         return options
 
     @bot.callback_query_handler(func=lambda c: c.data == 'edit_menu_message')

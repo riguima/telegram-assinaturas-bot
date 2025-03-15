@@ -2,10 +2,12 @@ from datetime import timedelta
 
 from telebot.util import quick_markup
 
+from app import bots
 from telegram_assinaturas_bot import repository, utils
 from telegram_assinaturas_bot.callbacks_datas import (
     actions_factory,
 )
+from telegram_assinaturas_bot.config import config
 
 
 def init_bot(bot, bot_token, start):
@@ -99,20 +101,34 @@ def init_bot(bot, bot_token, start):
         data = actions_factory.parse(callback_query.data)
         user = repository.get_user_by_username(bot_token, data['u'])
         reply_markup = {}
-        for signature in repository.get_active_signatures(user.id):
-            reply_markup[utils.get_signature_text(signature)] = {
-                'callback_data': utils.create_actions_callback_data(
-                    action='show_user_signature',
-                    s=signature.id,
-                )
+        if bot_token == config['BOT_TOKEN']:
+            reply_markup['Adicionar Bots'] = {
+                'callback_data': utils.actions_factory(
+                    action='add_user_bot',
+                    u=user.username,
+                ),
             }
-        reply_markup['Adicionar Plano'] = {
-            'callback_data': utils.create_categories_callback_data(
-                label='Escolha a Conta',
-                action='add_user_plan_menu',
-                argument=user.username,
-            ),
-        }
+            reply_markup['Remover Bots'] = {
+                'callback_data': utils.actions_factory(
+                    action='delete_user_bot',
+                    u=user.username,
+                ),
+            }
+        else:
+            for signature in repository.get_active_signatures(user.id):
+                reply_markup[utils.get_signature_text(signature)] = {
+                    'callback_data': utils.create_actions_callback_data(
+                        action='show_user_signature',
+                        s=signature.id,
+                    )
+                }
+            reply_markup['Adicionar Plano'] = {
+                'callback_data': utils.create_categories_callback_data(
+                    label='Escolha a Conta',
+                    action='add_user_plan_menu',
+                    argument=user.username,
+                ),
+            }
         reply_markup['Enviar Mensagem'] = {
             'callback_data': utils.create_actions_callback_data(
                 action='send_message',
@@ -229,6 +245,54 @@ def init_bot(bot, bot_token, start):
                     ),
                 )
             bot.send_message(message.chat.id, 'Membro Adicionado a Conta!')
+        except ValueError:
+            bot.send_message(
+                message.chat.id,
+                'Valor inválido, digite como no exemplo: 10 ou 15',
+            )
+        start(message)
+
+    @bot.callback_query_handler(config=actions_factory.filter(action='add_user_bot'))
+    def add_user_bot(callback_query):
+        data = actions_factory.parse(callback_query.data)
+        bot.send_message(
+            callback_query.message.chat.id,
+            'Digite a quantidade de bots que o admin poderá adicionar',
+        )
+        bot.register_next_step_handler(
+            callback_query.message,
+            lambda m: on_create_bots_number(m, data['u'])
+        )
+
+    def on_create_bots_number(message, username):
+        try:
+            for _ in range(int(message.text)):
+                repository.create_bot(username, '')
+        except ValueError:
+            bot.send_message(
+                message.chat.id,
+                'Valor inválido, digite como no exemplo: 10 ou 15',
+            )
+        start(message)
+
+    @bot.callback_query_handler(config=actions_factory.filter(action='delete_user_bot'))
+    def delete_user_bot(callback_query):
+        data = actions_factory.parse(callback_query.data)
+        bot.send_message(
+            callback_query.message.chat.id,
+            'Digite a quantidade de bots que deseja remover do admin',
+        )
+        bot.register_next_step_handler(
+            callback_query.message,
+            lambda m: on_delete_bots_number(m, data['u'])
+        )
+
+    def on_delete_bots_number(message, username):
+        try:
+            for _ in range(int(message.text)):
+                token = repository.delete_bot(username)
+                user_bot = bots[token]
+                user_bot.remove_webhook()
         except ValueError:
             bot.send_message(
                 message.chat.id,

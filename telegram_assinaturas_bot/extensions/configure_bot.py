@@ -1,5 +1,5 @@
-from telebot.util import quick_markup
 from telebot.apihelper import ApiTelegramException
+from telebot.util import quick_markup
 
 from app import bots
 from app import create_bot as create_new_bot

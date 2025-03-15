@@ -482,3 +482,14 @@ def is_admin(username):
     with Session() as session:
         query = select(models.Bot).where(models.Bot.username == username)
         return bool(session.scalars(query).all())
+
+
+def delete_bot(username):
+    with Session() as session:
+        query = select(models.Bot).where(models.Bot.username == username)
+        bot = session.scalars(query).first()
+        bot_token = bot.token
+        if bot:
+            session.delete(bot)
+            session.commit()
+        return bot_token
