@@ -7,11 +7,11 @@ from telegram_assinaturas_bot.callbacks_datas import (
 )
 
 
-def init_bot(bot, bot_username, start):
+def init_bot(bot, bot_token, start):
     def get_subscribers_label():
-        users = repository.get_users(bot_username)
+        users = repository.get_users(bot_token)
         actives, plan_actives = get_subscribers_count(
-            repository.get_accounts(bot_username)
+            repository.get_accounts(bot_token)
         )
         plan_message = ''
         for plan_name, active in plan_actives.items():
@@ -42,10 +42,10 @@ def init_bot(bot, bot_username, start):
         reply_markup = {}
         if data['category_id']:
             categories = repository.get_subcategories(
-                bot_username, int(data['category_id'])
+                bot_token, int(data['category_id'])
             )
         else:
-            categories = repository.get_main_categories(bot_username)
+            categories = repository.get_main_categories(bot_token)
         for category in categories:
             reply_markup['🗂 ' + category.name] = {
                 'callback_data': utils.create_categories_callback_data(
@@ -84,7 +84,7 @@ def init_bot(bot, bot_username, start):
 
     def on_add_category_name(message):
         reply_markup = {}
-        for category in repository.get_main_categories(bot_username):
+        for category in repository.get_main_categories(bot_token):
             reply_markup[category.name] = {
                 'callback_data': utils.create_actions_callback_data(
                     action='create_category',
@@ -113,14 +113,14 @@ def init_bot(bot, bot_username, start):
             parent_category_name = parent_category.name
         else:
             parent_category_name = 'Nenhuma'
-        repository.create_category(bot_username, parent_category_name, data['e'])
+        repository.create_category(bot_token, parent_category_name, data['e'])
         bot.send_message(callback_query.message.chat.id, 'Categoria Adicionada!')
         start(callback_query.message)
 
     @bot.callback_query_handler(func=lambda c: c.data == 'show_categories')
     def show_categories(callback_query):
         reply_markup = {}
-        for category in repository.get_categories(bot_username):
+        for category in repository.get_categories(bot_token):
             reply_markup[category.name] = {
                 'callback_data': utils.create_actions_callback_data(
                     action='show_category',
@@ -138,7 +138,7 @@ def init_bot(bot, bot_username, start):
     def show_category(callback_query):
         data = actions_factory.parse(callback_query.data)
         category = repository.get_category(int(data['c']))
-        subcategories = repository.get_subcategories(bot_username, int(data['c']))
+        subcategories = repository.get_subcategories(bot_token, int(data['c']))
         child_categories = ', '.join([c.name for c in subcategories])
         bot.send_message(
             callback_query.message.chat.id,
@@ -195,7 +195,7 @@ def init_bot(bot, bot_username, start):
         data = actions_factory.parse(callback_query.data)
         reply_markup = {}
         for parent_category in repository.get_categories_except(
-            bot_username, int(data['c'])
+            bot_token, int(data['c'])
         ):
             reply_markup[parent_category.name] = {
                 'callback_data': utils.create_actions_callback_data(

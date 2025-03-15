@@ -6,7 +6,7 @@ from telegram_assinaturas_bot.callbacks_datas import actions_factory
 from telegram_assinaturas_bot.consts import MAX_OPTIONS_LENGTH
 
 
-def init_bot(bot, bot_username, start):
+def init_bot(bot, bot_token, start):
     @bot.callback_query_handler(
         config=actions_factory.filter(action='show_plan_accounts')
     )
@@ -112,7 +112,7 @@ def init_bot(bot, bot_username, start):
         )
 
     def on_account_message(message, plan_id):
-        repository.create_account(bot_username, plan_id, message.text)
+        repository.create_account(bot_token, plan_id, message.text)
         bot.send_message(message.chat.id, 'Conta Adicionada!')
         start(message)
 

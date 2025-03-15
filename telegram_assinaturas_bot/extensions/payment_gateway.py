@@ -8,7 +8,7 @@ from telegram_assinaturas_bot.callbacks_datas import actions_factory
 from telegram_assinaturas_bot.config import config
 
 
-def init_bot(bot, bot_username, start):
+def init_bot(bot, bot_token, start):
     @bot.callback_query_handler(func=lambda c: c.data == 'change_payment_gateway')
     def change_payment_gateway(callback_query):
         bot.send_message(
@@ -94,7 +94,7 @@ def init_bot(bot, bot_username, start):
             )
 
     def on_access_token(message, gateway):
-        repository.set_setting(bot_username, 'Gateway', gateway)
-        repository.set_setting(bot_username, 'Access Token', message.text)
+        repository.set_setting(bot_token, 'Gateway', gateway)
+        repository.set_setting(bot_token, 'Access Token', message.text)
         bot.send_message(message.chat.id, 'Gateway Configurado!')
         start(message)

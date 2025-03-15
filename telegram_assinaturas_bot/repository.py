@@ -11,36 +11,36 @@ def get_today_date():
     return datetime.now(timezone('America/Sao_Paulo')).date()
 
 
-def get_users(bot_username):
+def get_users(bot_token):
     with Session() as session:
-        query = select(models.User).where(models.User.bot_username == bot_username)
+        query = select(models.User).where(models.User.bot_token == bot_token)
         return session.scalars(query).all()
 
 
-def search_users(bot_username, search):
+def search_users(bot_token, search):
     with Session() as session:
         query = select(models.User).where(
-            models.User.bot_username, models.User.username.ilike(f'%{search}%')
+            models.User.bot_token, models.User.username.ilike(f'%{search}%')
         )
         return session.scalars(query).all()
 
 
-def create_user(bot_username, username):
+def create_user(bot_token, username):
     with Session() as session:
-        user = models.User(bot_username=bot_username, username=username)
+        user = models.User(bot_token=bot_token, username=username)
         session.add(user)
         session.commit()
 
 
-def create_update_user(bot_username, username, name, chat_id):
+def create_update_user(bot_token, username, name, chat_id):
     with Session() as session:
         query = select(models.User).where(
-            models.User.bot_username == bot_username, models.User.username == username
+            models.User.bot_token == bot_token, models.User.username == username
         )
         user_model = session.scalars(query).first()
         if user_model is None:
             user_model = models.User(
-                bot_username=bot_username,
+                bot_token=bot_token,
                 username=username,
                 name=name,
                 chat_id=chat_id,
@@ -53,10 +53,10 @@ def create_update_user(bot_username, username, name, chat_id):
             session.commit()
 
 
-def get_user_by_username(bot_username, username):
+def get_user_by_username(bot_token, username):
     with Session() as session:
         query = select(models.User).where(
-            models.User.bot_username == bot_username, models.User.username == username
+            models.User.bot_token == bot_token, models.User.username == username
         )
         return session.scalars(query).first()
 
@@ -75,10 +75,10 @@ def edit_user_email(user_id, email):
         session.commit()
 
 
-def delete_user_by_username(bot_username, username):
+def delete_user_by_username(bot_token, username):
     with Session() as session:
         query = select(models.User).where(
-            models.User.bot_username == bot_username, models.User.username == username
+            models.User.bot_token == bot_token, models.User.username == username
         )
         user = session.scalars(query).first()
         session.delete(user)
@@ -142,10 +142,12 @@ def edit_signature_account(signature_id, account_id):
         session.commit()
 
 
-def create_signature(bot_username, user_id, plan_id, due_date, account_id=None, payment_id=None):
+def create_signature(
+    bot_token, user_id, plan_id, due_date, account_id=None, payment_id=None
+):
     with Session() as session:
         signature = models.Signature(
-            bot_username=bot_username,
+            bot_token=bot_token,
             user_id=user_id,
             plan_id=plan_id,
             account_id=account_id,
@@ -163,10 +165,10 @@ def delete_signature(signature_id):
         session.commit()
 
 
-def get_accounts(bot_username):
+def get_accounts(bot_token):
     with Session() as session:
         query = select(models.Account).where(
-            models.Account.bot_username == bot_username
+            models.Account.bot_token == bot_token
         )
         return session.scalars(query).all()
 
@@ -188,10 +190,10 @@ def get_account(account_id):
         return session.get(models.Account, account_id)
 
 
-def create_account(bot_username, plan_id, message):
+def create_account(bot_token, plan_id, message):
     with Session() as session:
         account_model = models.Account(
-            bot_username=bot_username,
+            bot_token=bot_token,
             plan_id=plan_id,
             message=message,
         )
@@ -213,18 +215,18 @@ def delete_account(account_id):
         session.commit()
 
 
-def get_categories(bot_username):
+def get_categories(bot_token):
     with Session() as session:
         query = select(models.Category).where(
-            models.Category.bot_username == bot_username
+            models.Category.bot_token == bot_token
         )
         return session.scalars(query).all()
 
 
-def get_main_categories(bot_username):
+def get_main_categories(bot_token):
     with Session() as session:
         query = select(models.Category).where(
-            models.Category.bot_username == bot_username,
+            models.Category.bot_token == bot_token,
             models.Category.parent_category_name == 'Nenhuma',
         )
         return session.scalars(query).all()
@@ -235,10 +237,10 @@ def get_category(category_id):
         return session.get(models.Category, category_id)
 
 
-def create_category(bot_username, parent_category_name, name):
+def create_category(bot_token, parent_category_name, name):
     with Session() as session:
         category_model = models.Category(
-            bot_username=bot_username,
+            bot_token=bot_token,
             parent_category_name=parent_category_name,
             name=name,
         )
@@ -246,11 +248,11 @@ def create_category(bot_username, parent_category_name, name):
         session.commit()
 
 
-def get_subcategories(bot_username, parent_category_id):
+def get_subcategories(bot_token, parent_category_id):
     with Session() as session:
         category = session.get(models.Category, parent_category_id)
         query = select(models.Category).where(
-            models.Category.bot_username == bot_username,
+            models.Category.bot_token == bot_token,
             models.Category.parent_category_name == category.name,
         )
         return session.scalars(query).all()
@@ -274,11 +276,11 @@ def edit_parent_category(category_id, parent_category_id):
         session.commit()
 
 
-def get_categories_except(bot_username, category_id):
+def get_categories_except(bot_token, category_id):
     with Session() as session:
         category = session.get(models.Category, category_id)
         query = select(models.Category).where(
-            models.Category.bot_username == bot_username,
+            models.Category.bot_token == bot_token,
             models.Category.name != category.parent_category_name,
             models.Category.name != category.name,
         )
@@ -297,26 +299,26 @@ def delete_category(category_id):
         session.commit()
 
 
-def get_setting(bot_username, name, default=''):
+def get_setting(bot_token, name, default=''):
     with Session() as session:
         query = select(models.Setting).where(
-            models.Setting.bot_username == bot_username, models.Setting.name == name
+            models.Setting.bot_token == bot_token, models.Setting.name == name
         )
         setting = session.scalars(query).first()
         return default if setting is None else setting.value
 
 
-def set_setting(bot_username, name, value):
+def set_setting(bot_token, name, value):
     with Session() as session:
         query = select(models.Setting).where(
-            models.Setting.bot_username == bot_username, models.Setting.name == name
+            models.Setting.bot_token == bot_token, models.Setting.name == name
         )
         setting = session.scalars(query).first()
         if setting:
             setting.value = value
         else:
             setting = models.Setting(
-                bot_username=bot_username,
+                bot_token=bot_token,
                 name=name,
                 value=value,
             )
@@ -335,10 +337,10 @@ def get_plans_with_category(category_id):
         return session.scalars(query).all()
 
 
-def create_plan(bot_username, value, name, days, category_id):
+def create_plan(bot_token, value, name, days, category_id):
     with Session() as session:
         plan = models.Plan(
-            bot_username=bot_username,
+            bot_token=bot_token,
             value=value,
             name=name,
             days=days,
@@ -390,10 +392,10 @@ def get_payment_plan(payment_id):
         return session.get(models.Payment, payment_id).plan
 
 
-def create_payment(bot_username, chat_id, user_id, payment_id, gateway, plan):
+def create_payment(bot_token, chat_id, user_id, payment_id, gateway, plan):
     with Session() as session:
         payment = models.Payment(
-            bot_username=bot_username,
+            bot_token=bot_token,
             chat_id=chat_id,
             user_id=user_id,
             payment_id=payment_id,
@@ -411,13 +413,13 @@ def delete_payment(payment_id):
         session.commit()
 
 
-def get_subscribers(bot_username):
+def get_subscribers(bot_token):
     with Session() as session:
         query = (
             select(models.User)
             .join(models.Signature)
             .where(
-                models.Signature.bot_username == bot_username,
+                models.Signature.bot_token == bot_token,
                 models.Signature.due_date >= get_today_date(),
             )
         )
@@ -429,16 +431,33 @@ def get_bots():
         return session.scalars(select(models.Bot)).all()
 
 
+def get_bot(bot_id):
+    with Session() as session:
+        return session.get(models.Bot, bot_id)
+
+
 def get_bot_by_token(token):
     with Session() as session:
         query = select(models.Bot).where(models.Bot.token == token)
         return session.scalars(query).first()
 
 
-def get_bot_by_username(username):
+def get_active_bots(username):
     with Session() as session:
-        query = select(models.Bot).where(models.Bot.username == username)
-        return session.scalars(query).first()
+        query = select(models.Bot).where(
+            models.Bot.username == username,
+            models.Bot.token != ''
+        )
+        return session.scalars(query).all()
+
+
+def get_inactive_bots(username):
+    with Session() as session:
+        query = select(models.Bot).where(
+            models.Bot.username == username,
+            models.Bot.token == ''
+        )
+        return session.scalars(query).all()
 
 
 def create_bot(username, token):
@@ -448,4 +467,11 @@ def create_bot(username, token):
             token=token,
         )
         session.add(bot)
+        session.commit()
+
+
+def edit_bot_token(bot_id, token):
+    with Session() as session:
+        bot = session.get(models.Bot, bot_id)
+        bot.token = token
         session.commit()

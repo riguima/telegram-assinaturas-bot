@@ -14,12 +14,12 @@ class CallbackFilter(AdvancedCustomFilter):
         return config.check(query=call)
 
 
-def init_bot(bot, bot_username, bot_token):
+def init_bot(bot, bot_token):
     @bot.message_handler(commands=['start', 'help', 'menu'])
     def start(message):
         if message.chat.username:
             repository.create_update_user(
-                bot_username=bot_username,
+                bot_token=bot_token,
                 username=message.chat.username,
                 name=message.chat.first_name,
                 chat_id=str(message.chat.id),
@@ -27,7 +27,7 @@ def init_bot(bot, bot_username, bot_token):
             bot.send_message(
                 message.chat.id,
                 repository.get_setting(
-                    bot_username,
+                    bot_token,
                     'Mensagem Menu',
                     default='Altere a mensagem do menu para ser mostrada aqui',
                 ),
@@ -40,33 +40,39 @@ def init_bot(bot, bot_username, bot_token):
             )
 
     def get_menu_options(message):
-        options = {
-            'Minhas Assinaturas': {
+        options = {}
+        if bot_token != config['BOT_TOKEN']:
+            options['Minhas Assinaturas'] = {
                 'callback_data': utils.create_actions_callback_data(
                     action='show_signature', u=message.chat.username
                 )
             },
-        }
-        if message.chat.username in bot_username:
-            options['Gateway de Pagamento'] = {
-                'callback_data': 'change_payment_gateway'
-            }
+        is_admin = repository.is_admin(message.chat.username)
+        if is_admin:
+            if bot_token == config['BOT_TOKEN']:
+                options['Configurar Bot'] = {
+                    'callback_data': 'configure_bot',
+                }
+            else:
+                options['Gateway de Pagamento'] = {
+                    'callback_data': 'change_payment_gateway'
+                }
+                options['Adicionar Conta'] = {
+                    'callback_data': utils.create_categories_callback_data(
+                        label='Selecione um Plano',
+                        action='create_account',
+                        argument='',
+                    )
+                }
+                options['Contas'] = {
+                    'callback_data': utils.create_categories_callback_data(
+                        label='Contas',
+                        action='show_plan_accounts',
+                        argument='show_account',
+                    )
+                }
             options['Enviar Mensagem'] = {'callback_data': 'send_message'}
             options['Editar Mensagem do Menu'] = {'callback_data': 'edit_menu_message'}
-            options['Adicionar Conta'] = {
-                'callback_data': utils.create_categories_callback_data(
-                    label='Selecione um Plano',
-                    action='create_account',
-                    argument='',
-                )
-            }
-            options['Contas'] = {
-                'callback_data': utils.create_categories_callback_data(
-                    label='Contas',
-                    action='show_plan_accounts',
-                    argument='show_account',
-                )
-            }
             options['Adicionar Categoria'] = {'callback_data': 'create_category'}
             options['Categorias'] = {'callback_data': 'show_categories'}
             options['Assinantes'] = {
@@ -97,7 +103,7 @@ def init_bot(bot, bot_username, bot_token):
         bot.register_next_step_handler(callback_query.message, on_menu_message)
 
     def on_menu_message(message):
-        repository.set_setting(bot_username, 'Mensagem Menu', message.text)
+        repository.set_setting(bot_token, 'Mensagem Menu', message.text)
         bot.send_message(message.chat.id, 'Mensagem Editada!')
         start(message)
 
@@ -108,7 +114,7 @@ def init_bot(bot, bot_username, bot_token):
     def load_extensions():
         for extension in config['EXTENSIONS']:
             extension_module = import_module(extension)
-            extension_module.init_bot(bot, bot_username, start)
+            extension_module.init_bot(bot, bot_token, start)
 
     load_extensions()
     bot.add_custom_filter(CallbackFilter())

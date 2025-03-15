@@ -16,11 +16,11 @@ from telegram_assinaturas_bot.config import config
 from telegram_assinaturas_bot.utils import get_today_date
 
 
-def init_bot(bot, bot_username, start):
+def init_bot(bot, bot_token, start):
     @bot.callback_query_handler(config=actions_factory.filter(action='show_signature'))
     def show_signature(callback_query):
         data = actions_factory.parse(callback_query.data)
-        user = repository.get_user_by_username(bot_username, data['u'])
+        user = repository.get_user_by_username(bot_token, data['u'])
         signatures = repository.get_active_signatures(user.id)
         if signatures:
             reply_markup = {}
@@ -34,7 +34,7 @@ def init_bot(bot, bot_username, start):
             reply_markup['Comprar acesso'] = {'callback_data': 'ask_cpf_cnpj'}
             reply_markup['Voltar'] = {'callback_data': 'show_main_menu'}
             bot.send_message(
-                message.chat.id,
+                callback_query.message.chat.id,
                 'Escolha uma opção',
                 reply_markup=quick_markup(reply_markup, row_width=1),
             )
@@ -79,13 +79,16 @@ def init_bot(bot, bot_username, start):
 
     @bot.callback_query_handler(config=actions_factory.filter(action='ask_cpf_cnpj'))
     def ask_cpf_cnpj(callback_query):
-        access_token = repository.get_setting(bot_username, 'Access Token')
+        access_token = repository.get_setting(bot_token, 'Access Token')
         if not access_token:
-            bot.send_message(callback_query.message.chat.id, 'Nenhum Gateway de Pagamento Configurado')
+            bot.send_message(
+                callback_query.message.chat.id,
+                'Nenhum Gateway de Pagamento Configurado',
+            )
             start(callback_query.message)
         data = actions_factory.parse(callback_query.data)
         user = repository.get_user_by_username(
-            bot_username,
+            bot_token,
             callback_query.message.chat.username,
         )
         if user.cpf_cnpj is None or user.email is None:
@@ -107,8 +110,8 @@ def init_bot(bot, bot_username, start):
         sign(message, plan_id)
 
     def sign(message, plan_id):
-        user = repository.get_user_by_username(bot_username, message.chat.username)
-        gateway = repository.get_setting(bot_username, 'Gateway')
+        user = repository.get_user_by_username(bot_token, message.chat.username)
+        gateway = repository.get_setting(bot_token, 'Gateway')
         plan = repository.get_plan(plan_id)
         if gateway == 'mercado-pago':
             qr_code, payment_id = get_mercadopago_qrcode(user, plan)
@@ -129,7 +132,7 @@ def init_bot(bot, bot_username, start):
         )
         os.remove(Path(qr_code_filename).absolute())
         repository.create_payment(
-            bot_username=bot_username,
+            bot_token=bot_token,
             chat_id=message.chat.id,
             user_id=user.id,
             payment_id=payment_id,
@@ -139,7 +142,7 @@ def init_bot(bot, bot_username, start):
 
     def get_mercadopago_qrcode(user, plan):
         mercado_pago_sdk = mercadopago.SDK(
-            repository.get_setting(bot_username, 'Access Token')
+            repository.get_setting(bot_token, 'Access Token')
         )
         due_date = utils.get_today_date() + timedelta(days=plan.days)
         payment_data = {
@@ -164,7 +167,7 @@ def init_bot(bot, bot_username, start):
         )
 
     def get_asaas_qrcode(user, plan):
-        access_token = repository.get_setting(bot_username, 'Access Token')
+        access_token = repository.get_setting(bot_token, 'Access Token')
         due_date = utils.get_today_date() + timedelta(days=plan.days)
         customer_response = get(
             f'{config["ASAAS_API_HOST"]}/v3/customers',

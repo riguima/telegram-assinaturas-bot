@@ -1,5 +1,5 @@
-from http import HTTPStatus
 from datetime import timedelta
+from http import HTTPStatus
 
 import telebot
 from fastapi import FastAPI
@@ -50,7 +50,7 @@ def create_signature(payment_id):
     payment = repository.get_payment(payment_id, 'mercado-pago')
     if payment is None:
         return
-    bot = repository.get_bot_by_username(payment.bot_username)
+    bot = repository.get_bot_by_token(payment.bot_token)
     bot = bots[bot.token]
     bot.send_message(
         int(payment.chat_id),

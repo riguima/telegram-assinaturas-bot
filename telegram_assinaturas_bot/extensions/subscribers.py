@@ -7,7 +7,7 @@ from telegram_assinaturas_bot.callbacks_datas import (
 from telegram_assinaturas_bot.consts import MAX_OPTIONS_LENGTH
 
 
-def init_bot(bot, bot_username, start):
+def init_bot(bot, bot_token, start):
     @bot.callback_query_handler(
         config=actions_factory.filter(action='show_subscribers')
     )

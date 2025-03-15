@@ -8,7 +8,7 @@ from telegram_assinaturas_bot.callbacks_datas import (
 )
 
 
-def init_bot(bot, bot_username, start):
+def init_bot(bot, bot_token, start):
     @bot.callback_query_handler(func=lambda c: c.data == 'create_user')
     def add_user(callback_query):
         bot.send_message(callback_query.message.chat.id, 'Digite o arroba do membro')
@@ -16,7 +16,7 @@ def init_bot(bot, bot_username, start):
 
     def on_username(message):
         repository.create_user(
-            bot_username=bot_username,
+            bot_token=bot_token,
             username=message.text,
         )
         bot.send_message(message.chat.id, 'Membro Adicionado!')
@@ -62,7 +62,7 @@ def init_bot(bot, bot_username, start):
         else:
             send_users_message(
                 callback_query.message,
-                repository.get_users(bot_username),
+                repository.get_users(bot_token),
             )
 
     def on_search_term(message):
@@ -75,7 +75,7 @@ def init_bot(bot, bot_username, start):
         }
         send_users_message(
             message,
-            repository.search_users(bot_username, message.text),
+            repository.search_users(bot_token, message.text),
             options,
         )
 
@@ -97,7 +97,7 @@ def init_bot(bot, bot_username, start):
     @bot.callback_query_handler(config=actions_factory.filter(action='show_user'))
     def show_user_action(callback_query):
         data = actions_factory.parse(callback_query.data)
-        user = repository.get_user_by_username(bot_username, data['u'])
+        user = repository.get_user_by_username(bot_token, data['u'])
         reply_markup = {}
         for signature in repository.get_active_signatures(user.id):
             reply_markup[utils.get_signature_text(signature)] = {
@@ -208,11 +208,11 @@ def init_bot(bot, bot_username, start):
 
     def on_signatures_days(message, username, account_id):
         try:
-            user = repository.get_user_by_username(bot_username, username)
+            user = repository.get_user_by_username(bot_token, username)
             account = repository.get_account(account_id)
             plan = repository.get_plan_from_account(account_id)
             repository.create_signature(
-                bot_username=bot_username,
+                bot_token=bot_token,
                 user_id=user.id,
                 plan_id=plan.id,
                 account_id=account.id,
@@ -239,6 +239,6 @@ def init_bot(bot, bot_username, start):
     @bot.callback_query_handler(config=actions_factory.filter(action='delete_user'))
     def delete_user_action(callback_query):
         data = actions_factory.parse(callback_query.data)
-        repository.delete_user_by_username(bot_username, data['u'])
+        repository.delete_user_by_username(bot_token, data['u'])
         bot.send_message(callback_query.message.chat.id, 'Membro Removido!')
         start(callback_query.message)
