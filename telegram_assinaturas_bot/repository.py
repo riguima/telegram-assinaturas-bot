@@ -412,6 +412,12 @@ def get_bot_by_token(token):
         return session.scalars(query).first()
 
 
+def get_bot_by_username(username):
+    with Session() as session:
+        query = select(models.Bot).where(models.Bot.username == username)
+        return session.scalars(query).first()
+
+
 def create_bot(username, token):
     with Session() as session:
         bot = models.Bot(

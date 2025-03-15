@@ -113,4 +113,4 @@ def init_bot(bot, bot_username, bot_token):
     load_extensions()
     bot.add_custom_filter(CallbackFilter())
     bot.remove_webhook()
-    bot.set_webhook(url=f'{config["WEBHOOK_HOST"]}/{bot_token}/')
+    bot.set_webhook(url=f'{config["WEBHOOK_HOST"]}/{bot_token}')

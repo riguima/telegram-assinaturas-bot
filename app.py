@@ -1,7 +1,7 @@
 from http import HTTPStatus
 
 import telebot
-from fastapi import FastAPI, Request
+from fastapi import FastAPI
 from rich import print
 
 from telegram_assinaturas_bot import repository
@@ -20,7 +20,7 @@ for bot in repository.get_bots():
     create_bot(bot)
 
 
-@app.post('/{token}/')
+@app.post('/{token}')
 async def update(token: str, update: dict):
     if bots.get(token) is None:
         create_bot(repository.get_bot_by_token(token))
@@ -32,11 +32,32 @@ async def update(token: str, update: dict):
 
 @app.post('/webhook/asaas', status_code=HTTPStatus.OK)
 async def webhook_asaas(body: dict):
-    print(body)
+    payment_id = body['payment']['id']
+    payment = repository.get_payment(payment_id, 'asaas')
+    bot = repository.get_bot_by_username(payment.bot_username)
+    bot = bots[bot.token]
+    bot.send_message(
+        int(payment.chat_id),
+        (
+            'Pagamento confirmado, Aguardando liberação...\n\n'
+            f'Nº Transação: {payment.payment_id}'
+        ),
+    )
     return {'status': 'ok'}
 
 
 @app.post('/webhook/mercado-pago', status_code=HTTPStatus.OK)
 async def webhook_mercado_pago(body: dict):
     print(body)
+    payment_id = body['payment']['id']
+    payment = repository.get_payment(payment_id, 'mercado_pago')
+    bot = repository.get_bot_by_username(payment.bot_username)
+    bot = bots[bot.token]
+    bot.send_message(
+        int(payment.chat_id),
+        (
+            'Pagamento confirmado, Aguardando liberação...\n\n'
+            f'Nº Transação: {payment.payment_id}'
+        ),
+    )
     return {'status': 'ok'}
