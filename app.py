@@ -31,12 +31,12 @@ async def update(token: str, update: dict):
 
 
 @app.post('/webhook/asaas', status_code=HTTPStatus.OK)
-async def webhook_asaas(request: Request):
-    print(request.json())
+async def webhook_asaas(body: dict):
+    print(body)
     return {'status': 'ok'}
 
 
 @app.post('/webhook/mercado-pago', status_code=HTTPStatus.OK)
-async def webhook_mercado_pago(request: Request):
-    print(request.json())
+async def webhook_mercado_pago(body: dict):
+    print(body)
     return {'status': 'ok'}
