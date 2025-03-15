@@ -19,7 +19,7 @@ def init_bot(bot, bot_username, start):
                     'Mercado Pago': {
                         'callback_data': utils.create_actions_callback_data(
                             action='configure_gateway',
-                            e='mercado_pago',
+                            e='mercado-pago',
                         ),
                     },
                     'Asaas': {
@@ -27,6 +27,7 @@ def init_bot(bot, bot_username, start):
                             action='configure_gateway', e='asaas'
                         ),
                     },
+                    'Voltar': {'callback_data': 'show_main_menu'},
                 },
                 row_width=1,
             ),

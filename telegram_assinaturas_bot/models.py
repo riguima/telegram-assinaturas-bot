@@ -70,6 +70,9 @@ class Plan(Base):
     accounts: Mapped[List['Account']] = relationship(
         back_populates='plan', cascade='all,delete-orphan'
     )
+    payments: Mapped[List['Payment']] = relationship(
+        back_populates='plan', cascade='all,delete-orphan'
+    )
 
 
 class Category(Base):
@@ -88,6 +91,8 @@ class Payment(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     bot_username: Mapped[str]
     payment_id: Mapped[str]
+    plan: Mapped['Plan'] = relationship(back_populates='payments')
+    plan_id: Mapped[int] = mapped_column(ForeignKey('plans.id'))
     user: Mapped['User'] = relationship(back_populates='payments')
     user_id: Mapped[int] = mapped_column(ForeignKey('users.id'))
     chat_id: Mapped[str]

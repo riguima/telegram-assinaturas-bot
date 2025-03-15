@@ -142,7 +142,7 @@ def edit_signature_account(signature_id, account_id):
         session.commit()
 
 
-def create_signature(bot_username, user_id, plan_id, account_id, due_date):
+def create_signature(bot_username, user_id, plan_id, due_date, account_id=None, payment_id=None):
     with Session() as session:
         signature = models.Signature(
             bot_username=bot_username,
@@ -150,6 +150,7 @@ def create_signature(bot_username, user_id, plan_id, account_id, due_date):
             plan_id=plan_id,
             account_id=account_id,
             due_date=due_date,
+            payment_id=payment_id,
         )
         session.add(signature)
         session.commit()
@@ -375,7 +376,21 @@ def edit_plan_value(plan_id, value):
         session.commit()
 
 
-def create_payment(bot_username, chat_id, user_id, payment_id, gateway):
+def get_payment(payment_id, gateway):
+    with Session() as session:
+        query = select(models.Payment).where(
+            models.Payment.payment_id == payment_id,
+            models.Payment.gateway == gateway,
+        )
+        return session.scalars(query).first()
+
+
+def get_payment_plan(payment_id):
+    with Session() as session:
+        return session.get(models.Payment, payment_id).plan
+
+
+def create_payment(bot_username, chat_id, user_id, payment_id, gateway, plan):
     with Session() as session:
         payment = models.Payment(
             bot_username=bot_username,
@@ -383,8 +398,16 @@ def create_payment(bot_username, chat_id, user_id, payment_id, gateway):
             user_id=user_id,
             payment_id=payment_id,
             gateway=gateway,
+            plan=plan,
         )
         session.add(payment)
+        session.commit()
+
+
+def delete_payment(payment_id):
+    with Session() as session:
+        payment = session.get(models.Payment, payment_id)
+        session.delete(payment)
         session.commit()
 
 

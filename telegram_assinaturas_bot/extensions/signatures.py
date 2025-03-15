@@ -23,7 +23,21 @@ def init_bot(bot, bot_username, start):
         user = repository.get_user_by_username(bot_username, data['u'])
         signatures = repository.get_active_signatures(user.id)
         if signatures:
-            send_signature_menu(callback_query.message, signatures)
+            reply_markup = {}
+            for signature in signatures:
+                reply_markup[utils.get_signature_text(signature)] = {
+                    'callback_data': utils.create_actions_callback_data(
+                        action='show_signature_message',
+                        s=signature.id,
+                    )
+                }
+            reply_markup['Comprar acesso'] = {'callback_data': 'ask_cpf_cnpj'}
+            reply_markup['Voltar'] = {'callback_data': 'show_main_menu'}
+            bot.send_message(
+                message.chat.id,
+                'Escolha uma opção',
+                reply_markup=quick_markup(reply_markup, row_width=1),
+            )
         else:
             bot.send_message(
                 callback_query.message.chat.id,
@@ -41,23 +55,6 @@ def init_bot(bot, bot_username, start):
                     row_width=1,
                 ),
             )
-
-    def send_signature_menu(message, signatures):
-        reply_markup = {}
-        for signature in signatures:
-            reply_markup[utils.get_signature_text(signature)] = {
-                'callback_data': utils.create_actions_callback_data(
-                    action='show_signature_message',
-                    s=signature.id,
-                )
-            }
-        reply_markup['Comprar acesso'] = {'callback_data': 'sign'}
-        reply_markup['Voltar'] = {'callback_data': 'show_main_menu'}
-        bot.send_message(
-            message.chat.id,
-            'Escolha uma opção',
-            reply_markup=quick_markup(reply_markup, row_width=1),
-        )
 
     @bot.callback_query_handler(
         config=actions_factory.filter(action='show_signature_message')
@@ -82,12 +79,16 @@ def init_bot(bot, bot_username, start):
 
     @bot.callback_query_handler(config=actions_factory.filter(action='ask_cpf_cnpj'))
     def ask_cpf_cnpj(callback_query):
+        access_token = repository.get_setting(bot_username, 'Access Token')
+        if not access_token:
+            bot.send_message(callback_query.message.chat.id, 'Nenhum Gateway de Pagamento Configurado')
+            start(callback_query.message)
         data = actions_factory.parse(callback_query.data)
         user = repository.get_user_by_username(
             bot_username,
             callback_query.message.chat.username,
         )
-        if user.cpf_cnpj is None:
+        if user.cpf_cnpj is None or user.email is None:
             bot.send_message(callback_query.message.chat.id, 'Digite seu CPF/CNPJ')
             bot.register_next_step_handler(
                 callback_query.message,
@@ -109,7 +110,7 @@ def init_bot(bot, bot_username, start):
         user = repository.get_user_by_username(bot_username, message.chat.username)
         gateway = repository.get_setting(bot_username, 'Gateway')
         plan = repository.get_plan(plan_id)
-        if gateway == 'Mercado Pago':
+        if gateway == 'mercado-pago':
             qr_code, payment_id = get_mercadopago_qrcode(user, plan)
         else:
             qr_code, payment_id = get_asaas_qrcode(user, plan)
@@ -133,6 +134,7 @@ def init_bot(bot, bot_username, start):
             user_id=user.id,
             payment_id=payment_id,
             gateway=gateway,
+            plan=plan,
         )
 
     def get_mercadopago_qrcode(user, plan):

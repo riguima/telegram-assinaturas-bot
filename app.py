@@ -1,10 +1,10 @@
 from http import HTTPStatus
+from datetime import timedelta
 
 import telebot
 from fastapi import FastAPI
-from rich import print
 
-from telegram_assinaturas_bot import repository
+from telegram_assinaturas_bot import repository, utils
 from telegram_assinaturas_bot.bot import init_bot
 
 app = FastAPI()
@@ -33,24 +33,23 @@ async def update(token: str, update: dict):
 @app.post('/webhook/asaas', status_code=HTTPStatus.OK)
 async def webhook_asaas(body: dict):
     payment_id = body['payment']['id']
-    payment = repository.get_payment(payment_id, 'asaas')
-    bot = repository.get_bot_by_username(payment.bot_username)
-    bot = bots[bot.token]
-    bot.send_message(
-        int(payment.chat_id),
-        (
-            'Pagamento confirmado, Aguardando liberação...\n\n'
-            f'Nº Transação: {payment.payment_id}'
-        ),
-    )
+    create_signature(payment_id)
     return {'status': 'ok'}
 
 
 @app.post('/webhook/mercado-pago', status_code=HTTPStatus.OK)
 async def webhook_mercado_pago(body: dict):
-    print(body)
-    payment_id = body['payment']['id']
-    payment = repository.get_payment(payment_id, 'mercado_pago')
+    if body.get('action') != 'payment.updated':
+        return {'status': 'ok'}
+    payment_id = body['data']['id']
+    create_signature(payment_id)
+    return {'status': 'ok'}
+
+
+def create_signature(payment_id):
+    payment = repository.get_payment(payment_id, 'mercado-pago')
+    if payment is None:
+        return
     bot = repository.get_bot_by_username(payment.bot_username)
     bot = bots[bot.token]
     bot.send_message(
@@ -60,4 +59,12 @@ async def webhook_mercado_pago(body: dict):
             f'Nº Transação: {payment.payment_id}'
         ),
     )
-    return {'status': 'ok'}
+    plan = repository.get_payment_plan(payment.id)
+    repository.create_signature(
+        bot_username=payment.bot_username,
+        user_id=payment.user_id,
+        plan_id=payment.plan_id,
+        due_date=utils.get_today_date() + timedelta(days=plan.days),
+        payment_id=payment_id,
+    )
+    repository.delete_payment(payment.id)
