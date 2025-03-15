@@ -18,6 +18,9 @@ def init_bot(bot, bot_token):
     @bot.message_handler(commands=['start', 'help', 'menu'])
     def start(message):
         if message.chat.username:
+            is_admin = repository.is_admin(message.chat.username)
+            if not is_admin and bot_token == config['BOT_TOKEN']:
+                return
             repository.create_update_user(
                 bot_token=bot_token,
                 username=message.chat.username,
@@ -31,7 +34,7 @@ def init_bot(bot, bot_token):
                     'Mensagem Menu',
                     default='Altere a mensagem do menu para ser mostrada aqui',
                 ),
-                reply_markup=quick_markup(get_menu_options(message), row_width=1),
+                reply_markup=quick_markup(get_menu_options(message, is_admin), row_width=1),
             )
         else:
             bot.send_message(
@@ -39,20 +42,45 @@ def init_bot(bot, bot_token):
                 'Adicione um arroba para sua conta do Telegram para utilizar esse bot',
             )
 
-    def get_menu_options(message):
+    def get_menu_options(message, is_admin):
         options = {}
         if bot_token != config['BOT_TOKEN']:
             options['Minhas Assinaturas'] = {
                 'callback_data': utils.create_actions_callback_data(
                     action='show_signature', u=message.chat.username
                 )
-            },
-        is_admin = repository.is_admin(message.chat.username)
+            }
         if is_admin:
+            admin_options = {
+                'Enviar Mensagem': {'callback_data': 'send_message'},
+                'Editar Mensagem do Menu': {'callback_data': 'edit_menu_message'},
+                'Adicionar Categoria': {'callback_data': 'create_category'},
+                'Categorias': {'callback_data': 'show_categories'},
+                'Assinantes': {
+                    'callback_data': utils.create_categories_callback_data(
+                        label='subscribers',
+                        action='show_subscribers',
+                        argument='',
+                    )
+                },
+                'Adicionar Plano': {'callback_data': 'create_plan'},
+                'Planos': {
+                    'callback_data': utils.create_categories_callback_data(
+                        label='Planos',
+                        action='show_plan',
+                        argument='',
+                    )
+                },
+                'Adicionar Membro': {'callback_data': 'create_user'},
+                'Membros': {'callback_data': 'show_users'},
+            }
             if bot_token == config['BOT_TOKEN']:
                 options['Configurar Bot'] = {
                     'callback_data': 'configure_bot',
                 }
+                user_bot = repository.get_bot_by_token(bot_token)
+                if user_bot.username == message.chat.username:
+                    options.update(admin_options)
             else:
                 options['Gateway de Pagamento'] = {
                     'callback_data': 'change_payment_gateway'
@@ -71,27 +99,7 @@ def init_bot(bot, bot_token):
                         argument='show_account',
                     )
                 }
-            options['Enviar Mensagem'] = {'callback_data': 'send_message'}
-            options['Editar Mensagem do Menu'] = {'callback_data': 'edit_menu_message'}
-            options['Adicionar Categoria'] = {'callback_data': 'create_category'}
-            options['Categorias'] = {'callback_data': 'show_categories'}
-            options['Assinantes'] = {
-                'callback_data': utils.create_categories_callback_data(
-                    label='subscribers',
-                    action='show_subscribers',
-                    argument='',
-                )
-            }
-            options['Adicionar Plano'] = {'callback_data': 'create_plan'}
-            options['Planos'] = {
-                'callback_data': utils.create_categories_callback_data(
-                    label='Planos',
-                    action='show_plan',
-                    argument='',
-                )
-            }
-            options['Adicionar Membro'] = {'callback_data': 'create_user'}
-            options['Membros'] = {'callback_data': 'show_users'}
+                options.update(admin_options)
         return options
 
     @bot.callback_query_handler(func=lambda c: c.data == 'edit_menu_message')

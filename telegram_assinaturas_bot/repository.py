@@ -428,7 +428,8 @@ def get_subscribers(bot_token):
 
 def get_bots():
     with Session() as session:
-        return session.scalars(select(models.Bot)).all()
+        query = select(models.Bot).where(models.Bot.token != '')
+        return session.scalars(query).all()
 
 
 def get_bot(bot_id):
@@ -475,3 +476,9 @@ def edit_bot_token(bot_id, token):
         bot = session.get(models.Bot, bot_id)
         bot.token = token
         session.commit()
+
+
+def is_admin(username):
+    with Session() as session:
+        query = select(models.Bot).where(models.Bot.username == username)
+        return bool(session.scalars(query).all())

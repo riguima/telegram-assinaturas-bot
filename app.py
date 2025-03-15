@@ -13,7 +13,7 @@ bots = {}
 
 def create_bot(bot):
     bots[bot.token] = telebot.TeleBot(bot.token, threaded=False)
-    init_bot(bots[bot.token], bot.username, bot.token)
+    init_bot(bots[bot.token], bot.token)
 
 
 for bot in repository.get_bots():
