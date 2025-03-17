@@ -59,3 +59,24 @@ def init_bot(bot, bot_token, start):
                 row_width=1,
             ),
         )
+
+    @bot.callback_query_handler(func=lambda c: c.data == 'show_bots_subscribers')
+    def show_bots_subscribers(callback_query):
+        active_bots = repository.get_active_bots()
+        inactive_bots = repository.get_inactive_bots()
+        users = ''
+        actives = 0
+        for active_bot in active_bots:
+            actives += 1
+            if active_bot.username not in users:
+                users += f'@{active_bot.username}\n'
+        bot.send_message(
+            callback_query.message.chat.id,
+            f'Ativos: {len(active_bots)}\nInativos: {len(inactive_bots)}\n\n{users}',
+            reply_markup=quick_markup(
+                {
+                    'Voltar': {'callback_data': 'show_main_menu'}
+                },
+                row_width=1,
+            ),
+        )

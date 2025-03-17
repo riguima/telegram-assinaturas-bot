@@ -2,7 +2,6 @@ from datetime import timedelta
 
 from telebot.util import quick_markup
 
-from app import bots
 from telegram_assinaturas_bot import repository, utils
 from telegram_assinaturas_bot.callbacks_datas import (
     actions_factory,

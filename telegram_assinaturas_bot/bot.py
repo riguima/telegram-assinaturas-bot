@@ -69,6 +69,7 @@ def init_bot(bot, bot_token):
                 }
                 user_bot = repository.get_bot_by_token(bot_token)
                 if user_bot.username == message.chat.username:
+                    options['Assinantes'] = {'callback_data': 'show_bots_subscribers'}
                     options.update(default_options)
             else:
                 options['Gateway de Pagamento'] = {
