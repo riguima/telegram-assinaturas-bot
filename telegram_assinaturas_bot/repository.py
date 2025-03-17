@@ -472,6 +472,22 @@ def get_inactive_bots(username):
         return session.scalars(query).all()
 
 
+def get_before_due_date_bots():
+    with Session() as session:
+        query = select(models.Bot).where(
+            models.Bot.due_date >= get_today_date()
+        )
+        return session.scalars(query).all()
+
+
+def get_after_due_date_bots():
+    with Session() as session:
+        query = select(models.Bot).where(
+            models.Bot.due_date < get_today_date()
+        )
+        return session.scalars(query).all()
+
+
 def create_bot(username, token, due_date):
     with Session() as session:
         bot = models.Bot(

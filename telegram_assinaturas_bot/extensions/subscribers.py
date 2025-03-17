@@ -62,17 +62,20 @@ def init_bot(bot, bot_token, start):
 
     @bot.callback_query_handler(func=lambda c: c.data == 'show_bots_subscribers')
     def show_bots_subscribers(callback_query):
-        active_bots = repository.get_active_bots()
-        inactive_bots = repository.get_inactive_bots()
+        before_due_date_bots = repository.get_before_due_date_bots()
+        after_due_date_bots = repository.get_after_due_date_bots()
         users = ''
         actives = 0
-        for active_bot in active_bots:
+        for before_due_date_bot in before_due_date_bots:
             actives += 1
-            if active_bot.username not in users:
-                users += f'@{active_bot.username}\n'
+            if before_due_date_bot.username not in users:
+                users += f'@{before_due_date_bot.username}\n'
         bot.send_message(
             callback_query.message.chat.id,
-            f'Ativos: {len(active_bots)}\nInativos: {len(inactive_bots)}\n\n{users}',
+            (
+                f'Ativos: {len(before_due_date_bots)}\n'
+                f'Inativos: {len(after_due_date_bots)}\n\n{users}',
+            ),
             reply_markup=quick_markup(
                 {
                     'Voltar': {'callback_data': 'show_main_menu'}
