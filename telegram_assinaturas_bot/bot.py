@@ -17,6 +17,9 @@ class CallbackFilter(AdvancedCustomFilter):
 def init_bot(bot, bot_token):
     @bot.message_handler(commands=['start', 'help', 'menu'])
     def start(message):
+        user_bot = repository.get_bot_by_token(bot_token)
+        if user_bot.due_date and user_bot.due_date < utils.get_today_date():
+            return
         if message.chat.username:
             is_admin = repository.is_admin(message.chat.username)
             if not is_admin and bot_token == config['BOT_TOKEN']:

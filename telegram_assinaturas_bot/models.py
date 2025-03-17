@@ -112,6 +112,7 @@ class Bot(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     username: Mapped[str]
     token: Mapped[str]
+    due_date: Mapped[Optional[date]]
 
 
 Base.metadata.create_all(db)

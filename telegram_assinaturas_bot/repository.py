@@ -428,7 +428,12 @@ def get_subscribers(bot_token):
 
 def get_bots():
     with Session() as session:
-        query = select(models.Bot).where(models.Bot.token != '')
+        query = select(models.Bot).where(
+            models.Bot.token != '',
+        ).filter(
+            (models.Bot.due_date == None) |
+            (models.Bot.due_date >= get_today_date())
+        )
         return session.scalars(query).all()
 
 
@@ -447,7 +452,10 @@ def get_active_bots(username):
     with Session() as session:
         query = select(models.Bot).where(
             models.Bot.username == username,
-            models.Bot.token != ''
+            models.Bot.token != '',
+        ).filter(
+            (models.Bot.due_date == None) |
+            (models.Bot.due_date >= get_today_date())
         )
         return session.scalars(query).all()
 
@@ -456,16 +464,20 @@ def get_inactive_bots(username):
     with Session() as session:
         query = select(models.Bot).where(
             models.Bot.username == username,
-            models.Bot.token == ''
+            models.Bot.token == '',
+        ).filter(
+            (models.Bot.due_date == None) |
+            (models.Bot.due_date >= get_today_date())
         )
         return session.scalars(query).all()
 
 
-def create_bot(username, token):
+def create_bot(username, token, due_date):
     with Session() as session:
         bot = models.Bot(
             username=username,
             token=token,
+            due_date=due_date,
         )
         session.add(bot)
         session.commit()

@@ -103,14 +103,8 @@ def init_bot(bot, bot_token, start):
         reply_markup = {}
         if bot_token == config['BOT_TOKEN']:
             reply_markup['Adicionar Bots'] = {
-                'callback_data': utils.actions_factory(
+                'callback_data': utils.create_actions_callback_data(
                     action='add_user_bot',
-                    u=user.username,
-                ),
-            }
-            reply_markup['Remover Bots'] = {
-                'callback_data': utils.actions_factory(
-                    action='delete_user_bot',
                     u=user.username,
                 ),
             }
@@ -261,43 +255,30 @@ def init_bot(bot, bot_token, start):
         )
         bot.register_next_step_handler(
             callback_query.message,
-            lambda m: on_create_bots_number(m, data['u'])
+            lambda m: on_bots_number(m, data['u'])
         )
 
-    def on_create_bots_number(message, username):
+    def on_bots_number(message, username):
         try:
-            for _ in range(int(message.text)):
-                repository.create_bot(username, '')
+            bot.send_message(message.chat.id, 'Digite o número de dias de acesso dos bots')
+            bot.register_next_step_handler(
+                message,
+                lambda m: on_bots_days(m, username, int(message.text))
+            )
         except ValueError:
             bot.send_message(
                 message.chat.id,
                 'Valor inválido, digite como no exemplo: 10 ou 15',
             )
-        start(message)
 
-    @bot.callback_query_handler(config=actions_factory.filter(action='delete_user_bot'))
-    def delete_user_bot(callback_query):
-        data = actions_factory.parse(callback_query.data)
-        bot.send_message(
-            callback_query.message.chat.id,
-            'Digite a quantidade de bots que deseja remover do admin',
-        )
-        bot.register_next_step_handler(
-            callback_query.message,
-            lambda m: on_delete_bots_number(m, data['u'])
-        )
-
-    def on_delete_bots_number(message, username):
-        try:
-            for _ in range(int(message.text)):
-                token = repository.delete_bot(username)
-                user_bot = bots[token]
-                user_bot.remove_webhook()
-        except ValueError:
-            bot.send_message(
-                message.chat.id,
-                'Valor inválido, digite como no exemplo: 10 ou 15',
+    def on_bots_days(message, username, bots_number):
+        for _ in range(bots_number):
+            repository.create_bot(
+                username=username,
+                token='',
+                due_date=utils.get_today_date() + timedelta(days=int(message.text)),
             )
+        bot.send_message(message.chat.id, 'Bots Adicionados!')
         start(message)
 
     @bot.callback_query_handler(config=actions_factory.filter(action='delete_user'))
