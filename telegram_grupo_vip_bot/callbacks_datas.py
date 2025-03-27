@@ -1,19 +1,15 @@
 from telebot.callback_data import CallbackData
 
-categories_factory = CallbackData(
-    'label',
+plans_factory = CallbackData(
     'action',
     'argument',
-    'category_id',
-    prefix='categories',
+    prefix='plans',
 )
 actions_factory = CallbackData(
     'action',
     'p',
     's',
-    'a',
     'u',
-    'c',
     'e',
     prefix='actions',
 )

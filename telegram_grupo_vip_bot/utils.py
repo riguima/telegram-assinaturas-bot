@@ -2,8 +2,8 @@ from datetime import datetime
 
 from pytz import timezone
 
-from telegram_assinaturas_bot import repository
-from telegram_assinaturas_bot.callbacks_datas import actions_factory, categories_factory
+from telegram_grupo_vip_bot import repository
+from telegram_grupo_vip_bot.callbacks_datas import actions_factory, plans_factory
 
 
 def get_today_date():
@@ -22,30 +22,26 @@ def get_plan_text(plan):
     return f'{plan.name} - {plan.days} Dias - R${plan.value:.2f}'.replace('.', ',')
 
 
+def create_plans_callback_data(**kwargs):
+    arguments = [
+        'action',
+        'argument',
+    ]
+    factory_arguments = {}
+    for argument in arguments:
+        factory_arguments[argument] = kwargs.get(argument, '')
+    return plans_factory.new(**factory_arguments)
+
+
 def create_actions_callback_data(**kwargs):
     arguments = [
         'action',
         'p',
         's',
-        'a',
         'u',
-        'c',
         'e',
     ]
     factory_arguments = {}
     for argument in arguments:
         factory_arguments[argument] = kwargs.get(argument, '')
     return actions_factory.new(**factory_arguments)
-
-
-def create_categories_callback_data(**kwargs):
-    arguments = [
-        'label',
-        'action',
-        'argument',
-        'category_id',
-    ]
-    factory_arguments = {}
-    for argument in arguments:
-        factory_arguments[argument] = kwargs.get(argument, '')
-    return categories_factory.new(**factory_arguments)

@@ -1,13 +1,13 @@
 from telebot.apihelper import ApiTelegramException
 from telebot.util import quick_markup
 
-from telegram_assinaturas_bot import repository, utils
-from telegram_assinaturas_bot.callbacks_datas import (
+from telegram_grupo_vip_bot import repository, utils
+from telegram_grupo_vip_bot.callbacks_datas import (
     actions_factory,
 )
 
 
-def init_bot(bot, bot_token, start):
+def init_bot(bot, start):
     @bot.callback_query_handler(func=lambda c: c.data == 'send_message')
     def send_message(callback_query):
         bot.send_message(
@@ -28,8 +28,7 @@ def init_bot(bot, bot_token, start):
                         )
                     },
                     'Enviar Para Membros de Plano': {
-                        'callback_data': utils.create_categories_callback_data(
-                            label='Escolha o Plano',
+                        'callback_data': utils.create_plans_callback_data(
                             action='send_message',
                             argument='plan_users',
                         ),
@@ -55,11 +54,11 @@ def init_bot(bot, bot_token, start):
         if message.text == '/stop':
             sending_message = bot.send_message(message.chat.id, 'Enviando Mensagens...')
             users = {
-                'all_users': lambda: repository.get_users(bot_token),
-                'subscribers': lambda: repository.get_subscribers(bot_token),
+                'all_users': repository.get_users,
+                'subscribers': repository.get_subscribers,
                 'plan_users': lambda: repository.get_plan_users(int(plan_id)),
                 'user': lambda: list(
-                    repository.get_user_by_username(bot_token, username)
+                    repository.get_user_by_username(username)
                 ),
             }
             for user in users[argument]():

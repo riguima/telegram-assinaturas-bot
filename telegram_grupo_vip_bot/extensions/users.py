@@ -2,14 +2,13 @@ from datetime import timedelta
 
 from telebot.util import quick_markup
 
-from telegram_assinaturas_bot import repository, utils
-from telegram_assinaturas_bot.callbacks_datas import (
+from telegram_grupo_vip_bot import repository, utils
+from telegram_grupo_vip_bot.callbacks_datas import (
     actions_factory,
 )
-from telegram_assinaturas_bot.config import config
 
 
-def init_bot(bot, bot_token, start):
+def init_bot(bot, start):
     @bot.callback_query_handler(func=lambda c: c.data == 'create_user')
     def add_user(callback_query):
         bot.send_message(callback_query.message.chat.id, 'Digite o arroba do membro')
@@ -17,7 +16,6 @@ def init_bot(bot, bot_token, start):
 
     def on_username(message):
         repository.create_user(
-            bot_token=bot_token,
             username=message.text,
         )
         bot.send_message(message.chat.id, 'Membro Adicionado!')
@@ -63,7 +61,7 @@ def init_bot(bot, bot_token, start):
         else:
             send_users_message(
                 callback_query.message,
-                repository.get_users(bot_token),
+                repository.get_users(),
             )
 
     def on_search_term(message):
@@ -76,7 +74,7 @@ def init_bot(bot, bot_token, start):
         }
         send_users_message(
             message,
-            repository.search_users(bot_token, message.text),
+            repository.search_users(message.text),
             options,
         )
 
@@ -98,30 +96,21 @@ def init_bot(bot, bot_token, start):
     @bot.callback_query_handler(config=actions_factory.filter(action='show_user'))
     def show_user_action(callback_query):
         data = actions_factory.parse(callback_query.data)
-        user = repository.get_user_by_username(bot_token, data['u'])
+        user = repository.get_user_by_username(data['u'])
         reply_markup = {}
-        if bot_token == config['BOT_TOKEN']:
-            reply_markup['Adicionar Bots'] = {
+        for signature in repository.get_active_signatures(user.id):
+            reply_markup[utils.get_signature_text(signature)] = {
                 'callback_data': utils.create_actions_callback_data(
-                    action='add_user_bot',
-                    u=user.username,
-                ),
+                    action='show_user_signature',
+                    s=signature.id,
+                )
             }
-        else:
-            for signature in repository.get_active_signatures(user.id):
-                reply_markup[utils.get_signature_text(signature)] = {
-                    'callback_data': utils.create_actions_callback_data(
-                        action='show_user_signature',
-                        s=signature.id,
-                    )
-                }
-            reply_markup['Adicionar Plano'] = {
-                'callback_data': utils.create_categories_callback_data(
-                    label='Escolha a Conta',
-                    action='add_user_plan_menu',
-                    argument=user.username,
-                ),
-            }
+        reply_markup['Adicionar Plano'] = {
+            'callback_data': utils.create_plans_callback_data(
+                action='add_user_plan_menu',
+                argument=user.username,
+            ),
+        }
         reply_markup['Enviar Mensagem'] = {
             'callback_data': utils.create_actions_callback_data(
                 action='send_message',
@@ -173,27 +162,6 @@ def init_bot(bot, bot_token, start):
             ),
         )
 
-    @bot.callback_query_handler(config=actions_factory.filter(action='choose_account'))
-    def choose_account(callback_query):
-        data = actions_factory.parse(callback_query.data)
-        bot.send_message(
-            callback_query.message.chat.id,
-            'Escolha uma opção',
-            reply_markup=quick_markup(
-                {
-                    'Adicionar Conta ao Plano': {
-                        'callback_data': utils.create_actions_callback_data(
-                            action='add_account_in_plan',
-                            s=data['s'],
-                            p=data['p'],
-                        )
-                    },
-                    'Voltar': {'callback_data': 'show_main_menu'},
-                },
-                row_width=1,
-            ),
-        )
-
     @bot.callback_query_handler(
         config=actions_factory.filter(action='add_account_in_plan')
     )
@@ -217,11 +185,10 @@ def init_bot(bot, bot_token, start):
 
     def on_signatures_days(message, username, account_id):
         try:
-            user = repository.get_user_by_username(bot_token, username)
+            user = repository.get_user_by_username(username)
             account = repository.get_account(account_id)
             plan = repository.get_plan_from_account(account_id)
             repository.create_signature(
-                bot_token=bot_token,
                 user_id=user.id,
                 plan_id=plan.id,
                 account_id=account.id,
@@ -245,44 +212,9 @@ def init_bot(bot, bot_token, start):
             )
         start(message)
 
-    @bot.callback_query_handler(config=actions_factory.filter(action='add_user_bot'))
-    def add_user_bot(callback_query):
-        data = actions_factory.parse(callback_query.data)
-        bot.send_message(
-            callback_query.message.chat.id,
-            'Digite a quantidade de bots que o admin poderá adicionar',
-        )
-        bot.register_next_step_handler(
-            callback_query.message,
-            lambda m: on_bots_number(m, data['u'])
-        )
-
-    def on_bots_number(message, username):
-        try:
-            bot.send_message(message.chat.id, 'Digite o número de dias de acesso dos bots')
-            bot.register_next_step_handler(
-                message,
-                lambda m: on_bots_days(m, username, int(message.text))
-            )
-        except ValueError:
-            bot.send_message(
-                message.chat.id,
-                'Valor inválido, digite como no exemplo: 10 ou 15',
-            )
-
-    def on_bots_days(message, username, bots_number):
-        for _ in range(bots_number):
-            repository.create_bot(
-                username=username,
-                token='',
-                due_date=utils.get_today_date() + timedelta(days=int(message.text)),
-            )
-        bot.send_message(message.chat.id, 'Bots Adicionados!')
-        start(message)
-
     @bot.callback_query_handler(config=actions_factory.filter(action='delete_user'))
     def delete_user_action(callback_query):
         data = actions_factory.parse(callback_query.data)
-        repository.delete_user_by_username(bot_token, data['u'])
+        repository.delete_user_by_username(data['u'])
         bot.send_message(callback_query.message.chat.id, 'Membro Removido!')
         start(callback_query.message)
