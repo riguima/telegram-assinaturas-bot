@@ -1,148 +1,217 @@
-from sqlalchemy import select
 from telebot.util import quick_markup
 
-from telegram_assinaturas_bot.database import Session
-from telegram_assinaturas_bot.models import Category
+from telegram_assinaturas_bot import repository, utils
+from telegram_assinaturas_bot.callbacks_datas import (
+    actions_factory,
+    categories_factory,
+)
 
 
-def init_bot(bot, start):
-    @bot.callback_query_handler(func=lambda c: c.data == 'add_category')
-    def add_category(callback_query):
+def init_bot(bot, bot_token, start):
+    def get_subscribers_label():
+        users = repository.get_users(bot_token)
+        actives, plan_actives = get_subscribers_count(
+            repository.get_accounts(bot_token)
+        )
+        plan_message = ''
+        for plan_name, active in plan_actives.items():
+            plan_message += f'{plan_name}: {active}\n'
+        return (
+            f'Número de Usuários - {len(users)}\n'
+            f'Ativos - {actives}\n'
+            f'Inativos - {len(users) - actives}\n\n'
+            f'{plan_message}'
+        )
+
+    def get_subscribers_count(accounts):
+        actives = 0
+        plan_subscribers = {}
+        for account in accounts:
+            for signature in account.signatures:
+                if signature.due_date >= utils.get_today_date():
+                    if plan_subscribers.get(signature.plan.name):
+                        plan_subscribers[signature.plan.name] += 1
+                    else:
+                        plan_subscribers[signature.plan.name] = 1
+                    actives += 1
+        return actives, plan_subscribers
+
+    @bot.callback_query_handler(config=categories_factory.filter())
+    def show_categories_menu(callback_query):
+        data = categories_factory.parse(callback_query.data)
+        reply_markup = {}
+        if data['category_id']:
+            categories = repository.get_subcategories(
+                bot_token, int(data['category_id'])
+            )
+        else:
+            categories = repository.get_main_categories(bot_token)
+        for category in categories:
+            reply_markup['🗂 ' + category.name] = {
+                'callback_data': utils.create_categories_callback_data(
+                    action=data['action'],
+                    argument=data['argument'],
+                    category_id=category.id,
+                ),
+            }
+        if data['category_id']:
+            for plan in repository.get_plans_with_category(int(data['category_id'])):
+                reply_markup[utils.get_plan_text(plan)] = {
+                    'callback_data': utils.create_actions_callback_data(
+                        action=data['action'],
+                        e=data['argument'],
+                        p=plan.id,
+                    ),
+                }
+        reply_markup['Voltar'] = {'callback_data': 'show_main_menu'}
+        if data['label'] == 'subscribers':
+            label = get_subscribers_label()
+        else:
+            label = data['label']
         bot.send_message(
-            callback_query.message.chat.id, 'Digite o nome da categoria'
+            callback_query.message.chat.id,
+            label or 'Escolha uma opção',
+            reply_markup=quick_markup(
+                reply_markup,
+                row_width=1,
+            ),
         )
-        bot.register_next_step_handler(
-            callback_query.message, on_add_category_name
-        )
+
+    @bot.callback_query_handler(func=lambda c: c.data == 'create_category')
+    def create_category(callback_query):
+        bot.send_message(callback_query.message.chat.id, 'Digite o nome da categoria')
+        bot.register_next_step_handler(callback_query.message, on_add_category_name)
 
     def on_add_category_name(message):
         reply_markup = {}
-        with Session() as session:
-            query = select(Category).where(
-                Category.parent_category_name == 'Nenhuma'
-            )
-            for category_model in session.scalars(query).all():
-                reply_markup[category_model.name] = {
-                    'callback_data': f'add_category:{category_model.id}:{message.text}'
-                }
-            reply_markup['Nenhuma'] = {
-                'callback_data': f'add_category:0:{message.text}'
+        for category in repository.get_main_categories(bot_token):
+            reply_markup[category.name] = {
+                'callback_data': utils.create_actions_callback_data(
+                    action='create_category',
+                    c=category.id,
+                    e=message.text,
+                )
             }
+        reply_markup['Nenhuma'] = {
+            'callback_data': utils.create_actions_callback_data(
+                action='create_category',
+                c=0,
+                e=message.text,
+            )
+        }
         bot.send_message(
             message.chat.id,
             'Subcategoria de',
             reply_markup=quick_markup(reply_markup, row_width=1),
         )
 
-    @bot.callback_query_handler(func=lambda c: 'add_category:' in c.data)
-    def add_category_action(callback_query):
-        parent_category_id, category_name = callback_query.data.split(':')[1:]
-        with Session() as session:
-            parent_category_model = session.get(
-                Category, int(parent_category_id)
-            )
-            if parent_category_model:
-                parent_category_name = parent_category_model.name
-            else:
-                parent_category_name = 'Nenhuma'
-            category_model = Category(
-                parent_category_name=parent_category_name,
-                name=category_name,
-            )
-            session.add(category_model)
-            session.commit()
-            bot.send_message(
-                callback_query.message.chat.id, 'Categoria Adicionada!'
-            )
-            start(callback_query.message)
+    @bot.callback_query_handler(config=actions_factory.filter(action='create_category'))
+    def create_category_action(callback_query):
+        data = actions_factory.parse(callback_query.data)
+        parent_category = repository.get_category(int(data['c']))
+        if parent_category:
+            parent_category_name = parent_category.name
+        else:
+            parent_category_name = 'Nenhuma'
+        repository.create_category(bot_token, parent_category_name, data['e'])
+        bot.send_message(callback_query.message.chat.id, 'Categoria Adicionada!')
+        start(callback_query.message)
 
     @bot.callback_query_handler(func=lambda c: c.data == 'show_categories')
     def show_categories(callback_query):
-        with Session() as session:
-            reply_markup = {}
-            for category in session.scalars(select(Category)).all():
-                reply_markup[category.name] = {
-                    'callback_data': f'show_category:{category.id}'
-                }
-            reply_markup['Voltar'] = {'callback_data': 'return_to_main_menu'}
-            bot.send_message(
-                callback_query.message.chat.id,
-                'Categorias',
-                reply_markup=quick_markup(reply_markup, row_width=1),
-            )
-
-    @bot.callback_query_handler(func=lambda c: 'show_category:' in c.data)
-    def show_category(callback_query):
-        category_id = int(callback_query.data.split(':')[-1])
-        with Session() as session:
-            category_model = session.get(Category, category_id)
-            query = select(Category).where(
-                Category.parent_category_name == category_model.name
-            )
-            child_categories = ', '.join(
-                [c.name for c in session.scalars(query).all()]
-            )
-            bot.send_message(
-                callback_query.message.chat.id,
-                f'Nome: {category_model.name}\nSubcategoria de: {category_model.parent_category_name}\nSubcategorias: {child_categories}',
-                reply_markup=quick_markup(
-                    {
-                        'Editar Nome': {
-                            'callback_data': f'edit_category_name:{category_model.id}'
-                        },
-                        'Editar Subcategoria De': {
-                            'callback_data': f'edit_parent_category_name:{category_model.id}'
-                        },
-                        'Remover Categoria': {
-                            'callback_data': f'remove_category:{category_model.id}'
-                        },
-                        'Voltar': {'callback_data': 'return_to_main_menu'},
-                    },
-                    row_width=1,
-                ),
-            )
-
-    @bot.callback_query_handler(func=lambda c: 'edit_category_name:' in c.data)
-    def edit_category_name(callback_query):
-        category_id = int(callback_query.data.split(':')[-1])
+        reply_markup = {}
+        for category in repository.get_categories(bot_token):
+            reply_markup[category.name] = {
+                'callback_data': utils.create_actions_callback_data(
+                    action='show_category',
+                    c=category.id,
+                )
+            }
+        reply_markup['Voltar'] = {'callback_data': 'show_main_menu'}
         bot.send_message(
-            callback_query.message.chat.id, 'Digite o nome da categoria'
+            callback_query.message.chat.id,
+            'Categorias',
+            reply_markup=quick_markup(reply_markup, row_width=1),
         )
+
+    @bot.callback_query_handler(config=actions_factory.filter(action='show_category'))
+    def show_category(callback_query):
+        data = actions_factory.parse(callback_query.data)
+        category = repository.get_category(int(data['c']))
+        subcategories = repository.get_subcategories(bot_token, int(data['c']))
+        child_categories = ', '.join([c.name for c in subcategories])
+        bot.send_message(
+            callback_query.message.chat.id,
+            (
+                f'Nome: {category.name}\n'
+                f'Subcategoria de: {category.parent_category_name}\n'
+                f'Subcategorias: {child_categories}'
+            ),
+            reply_markup=quick_markup(
+                {
+                    'Editar Nome': {
+                        'callback_data': utils.create_actions_callback_data(
+                            action='edit_category_name',
+                            c=category.id,
+                        ),
+                    },
+                    'Editar Subcategoria De': {
+                        'callback_data': utils.create_actions_callback_data(
+                            action='edit_parent_category',
+                            c=category.id,
+                        ),
+                    },
+                    'Remover Categoria': {
+                        'callback_data': utils.create_actions_callback_data(
+                            action='delete_category',
+                            c=category.id,
+                        )
+                    },
+                    'Voltar': {'callback_data': 'show_main_menu'},
+                },
+                row_width=1,
+            ),
+        )
+
+    @bot.callback_query_handler(
+        config=actions_factory.filter(action='edit_category_name')
+    )
+    def edit_category_name(callback_query):
+        data = actions_factory.parse(callback_query.data)
+        bot.send_message(callback_query.message.chat.id, 'Digite o nome da categoria')
         bot.register_next_step_handler(
-            callback_query.message, lambda m: on_category_name(m, category_id)
+            callback_query.message, lambda m: on_category_name(m, int(data['c']))
         )
 
     def on_category_name(message, category_id):
-        with Session() as session:
-            category_model = session.get(Category, category_id)
-            category_model.name = message.text
-            session.commit()
-            bot.send_message(message.chat.id, 'Nome da Categoria Alterada!')
-            start(message)
+        repository.edit_category_name(category_id, message.text)
+        bot.send_message(message.chat.id, 'Nome da Categoria Alterada!')
+        start(message)
 
     @bot.callback_query_handler(
-        func=lambda c: 'edit_parent_category_name:' in c.data
+        config=actions_factory.filter(action='edit_parent_category')
     )
-    def edit_parent_category_name(callback_query):
-        category_id = int(callback_query.data.split(':')[-1])
-        with Session() as session:
-            reply_markup = {}
-            category_model = session.get(Category, category_id)
-            for parent_category_model in session.scalars(
-                select(Category)
-            ).all():
-                if (
-                    parent_category_model.name
-                    != category_model.parent_category_name
-                    and parent_category_model.name != category_model.name
-                ):
-                    reply_markup[parent_category_model.name] = {
-                        'callback_data': f'edit_parent_category_name_action:{category_id}:{parent_category_model.id}'
-                    }
-            reply_markup['Nenhuma'] = {
-                'callback_data': f'edit_parent_category_name_action:{category_id}:0'
+    def edit_parent_category(callback_query):
+        data = actions_factory.parse(callback_query.data)
+        reply_markup = {}
+        for parent_category in repository.get_categories_except(
+            bot_token, int(data['c'])
+        ):
+            reply_markup[parent_category.name] = {
+                'callback_data': utils.create_actions_callback_data(
+                    action='edit_parent_category_action',
+                    c=data['c'],
+                    e=parent_category.id,
+                )
             }
-            reply_markup['Voltar'] = {'callback_data': 'return_to_main_menu'}
+        reply_markup['Nenhuma'] = {
+            'callback_data': utils.create_actions_callback_data(
+                action='edit_parent_category_action',
+                c=data['c'],
+                e=0,
+            )
+        }
+        reply_markup['Voltar'] = {'callback_data': 'show_main_menu'}
         bot.send_message(
             callback_query.message.chat.id,
             'Escolha a Categoria',
@@ -150,55 +219,20 @@ def init_bot(bot, start):
         )
 
     @bot.callback_query_handler(
-        func=lambda c: 'edit_parent_category_name_action:' in c.data
+        config=actions_factory.filter(action='edit_parent_category_action')
     )
-    def edit_parent_category_name_action(callback_query):
-        category_id, parent_category_id = callback_query.data.split(':')[1:]
-        with Session() as session:
-            category_model = session.get(Category, int(category_id))
-            parent_category_model = session.get(
-                Category, int(parent_category_id)
-            )
-            if parent_category_model:
-                category_model.parent_category_name = (
-                    parent_category_model.name
-                )
-            else:
-                category_model.parent_category_name = 'Nenhuma'
-            session.commit()
-            bot.send_message(
-                callback_query.message.chat.id, 'Categoria Alterada!'
-            )
-            start(callback_query.message)
-
-    @bot.callback_query_handler(func=lambda c: c.data == 'remove_category')
-    def remove_category(callback_query):
-        with Session() as session:
-            reply_markup = {}
-            for category_model in session.scalars(select(Category)).all():
-                reply_markup[category_model.name] = {
-                    'callback_data': f'remove_category:{category_model.id}'
-                }
-            reply_markup['Voltar'] = {'callback_data': 'return_to_main_menu'}
-        bot.send_message(
-            callback_query.message.chat.id,
-            'Escolha uma Categoria',
-            reply_markup=quick_markup(reply_markup, row_width=1),
+    def edit_parent_category_action(callback_query):
+        data = actions_factory.parse(callback_query.data)
+        repository.edit_parent_category(
+            int(data['c']),
+            int(data['e']),
         )
+        bot.send_message(callback_query.message.chat.id, 'Categoria Alterada!')
+        start(callback_query.message)
 
-    @bot.callback_query_handler(func=lambda c: 'remove_category:' in c.data)
-    def remove_category_action(callback_query):
-        category_id = int(callback_query.data.split(':')[-1])
-        with Session() as session:
-            category_model = session.get(Category, category_id)
-            query = select(Category).where(
-                Category.parent_category_name == category_model.name
-            )
-            for child_category_model in session.scalars(query).all():
-                child_category_model.parent_category_name = 'Nenhuma'
-            session.delete(category_model)
-            session.commit()
-            bot.send_message(
-                callback_query.message.chat.id, 'Categoria Removida!'
-            )
-            start(callback_query.message)
+    @bot.callback_query_handler(config=actions_factory.filter(action='delete_category'))
+    def delete_category_action(callback_query):
+        data = actions_factory.parse(callback_query.data)
+        repository.delete_category(int(data['c']))
+        bot.send_message(callback_query.message.chat.id, 'Categoria Removida!')
+        start(callback_query.message)

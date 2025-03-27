@@ -1,0 +1,50 @@
+[project]
+name = "telegram-assinaturas-bot"
+version = "0.1.0"
+description = ""
+authors = [
+    {name = "riguima",email = "richard.alexsander.guima@gmail.com"}
+]
+readme = "README.md"
+requires-python = "<4.0,>=3.9"
+dependencies = [
+    "mercadopago (>=2.2.3,<3.0.0)",
+    "pytelegrambotapi (>=4.26.0,<5.0.0)",
+    "toml (>=0.10.2,<0.11.0)",
+    "sqlalchemy (>=2.0.38,<3.0.0)",
+    "pytz (>=2025.1,<2026.0)",
+    "qrcode (>=8.0,<9.0)",
+    "rich (>=13.9.4,<14.0.0)",
+    "fastapi[standard] (>=0.115.11,<0.116.0)"
+]
+
+
+[build-system]
+requires = ["poetry-core>=2.0.0,<3.0.0"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.ruff.lint]
+preview = true
+select = ['I', 'F', 'E', 'W', 'PL', 'PT']
+
+[tool.ruff.format]
+preview = true
+quote-style = 'single'
+
+[tool.pytest.ini_options]
+pythonpath = "."
+addopts = '-p no:warnings'
+
+[tool.taskipy.tasks]
+lint = 'ruff check'
+pre_format = 'ruff check --fix'
+format = 'ruff format'
+run = 'fastapi dev src/fast_zero/app.py'
+pre_test = 'task lint'
+test = 'pytest -s -x --cov=src -vv'
+post_test = 'coverage html'
+
+[tool.poetry.group.dev.dependencies]
+ruff = "^0.9.10"
+taskipy = "^1.14.1"
+
