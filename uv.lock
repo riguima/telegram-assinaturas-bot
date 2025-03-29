@@ -856,6 +856,19 @@ wheels = [
 ]
 
 [[package]]
+name = "stripe"
+version = "11.6.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "requests" },
+    { name = "typing-extensions" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/30/a4/7e16668d7adfb45229f4b67c04c79f53fe78335a6d0625303b32024d831c/stripe-11.6.0.tar.gz", hash = "sha256:0ced7cce23a6cb1a393c86a1f7f9435c9d83ae7cbd556362868caf62cb44a92c", size = 1390405 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/d8/67/e320a11da2049dfd50fd1726952093b173332563f32d1a94cc3758932147/stripe-11.6.0-py2.py3-none-any.whl", hash = "sha256:6e6cf09ebb6d5fc2d708401cb8868fd7bff987a6d09a0433caaa92c62f97dbc5", size = 1636766 },
+]
+
+[[package]]
 name = "taskipy"
 version = "1.14.1"
 source = { registry = "https://pypi.org/simple" }
@@ -881,6 +894,7 @@ dependencies = [
     { name = "qrcode" },
     { name = "rich" },
     { name = "sqlalchemy" },
+    { name = "stripe" },
     { name = "toml" },
 ]
 
@@ -898,6 +912,7 @@ requires-dist = [
     { name = "qrcode", specifier = ">=8.0,<9.0" },
     { name = "rich", specifier = ">=13.9.4,<14.0.0" },
     { name = "sqlalchemy", specifier = ">=2.0.38,<3.0.0" },
+    { name = "stripe", specifier = ">=11.6.0" },
     { name = "toml", specifier = ">=0.10.2,<0.11.0" },
 ]
 
